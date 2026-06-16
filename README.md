@@ -1,18 +1,8 @@
-# SIDIAS - Sistem Informasi Penjadwalan Kuliah UIN Alauddin Makassar
+#Sistem Informasi Penjadwalan Kuliah UIN Alauddin Makassar
 
-SIDIAS adalah aplikasi berbasis web modern yang dirancang untuk mengelola dan menyusun jadwal perkuliahan secara otomatis serta memfasilitasi pengisian Rencana Studi (KRS) mahasiswa.
+Web ini adalah aplikasi berbasis web modern yang dirancang untuk mengelola dan menyusun jadwal perkuliahan secara otomatis serta memfasilitasi pengisian Rencana Studi (KRS) mahasiswa.
 
-Aplikasi ini menggunakan **Next.js (App Router)** di frontend dan backend, serta mendukung arsitektur database hybrid (Prisma ORM PostgreSQL dengan fallback otomatis ke file JSON lokal).
-
----
-
-## 🎨 Desain Visual & Antarmuka Premium
-
-SIDIAS mengadopsi tema **Earthy-Nature Palette** yang terinspirasi dari identitas alam kampus hijau UIN Alauddin Makassar:
-* **Warna Utama (Primary - `#606c38`)**: Hijau zaitun untuk elemen utama, tombol primer, dan indikator aktif.
-* **Warna Sekunder (Secondary - `#283618`)**: Hijau hutan tua untuk kontras judul dan navigasi agar terlihat profesional dan elegan.
-* **Warna Latar Belakang (Background - `#fefae0`)**: Warna krem hangat (*warm cream*) yang memberikan kenyamanan membaca tinggi tanpa membuat mata lelah.
-* **Profesional Tanpa Clutter**: Emotikon dekoratif yang berlebihan telah dibersihkan secara menyeluruh dari seluruh dasbor guna menyajikan citra akademis yang matang dan formal.
+WEb ini menggunakan **Next.js (App Router)** di frontend dan backend, serta mendukung arsitektur database hybrid (Prisma ORM PostgreSQL dengan fallback otomatis ke file JSON lokal).
 
 ---
 
