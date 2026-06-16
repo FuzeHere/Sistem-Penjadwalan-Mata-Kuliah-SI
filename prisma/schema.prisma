@@ -1,0 +1,186 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  LECTURER
+  STUDENT
+}
+
+enum RoomType {
+  REGULAR
+  LAB
+}
+
+enum CourseType {
+  THEORY
+  PRACTICAL
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(LECTURER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lecturer  Lecturer?
+  student   Student?
+}
+
+model Lecturer {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nidn      String   @unique
+  name      String
+  email     String   @unique
+  phone     String?
+  status    Boolean  @default(true)
+
+  preferences LecturerPreference[]
+  schedules   Schedule[]           @relation("MainLecturer")
+}
+
+model Student {
+  id        String   @id @default(uuid())
+  userId    String?  @unique
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nim       String   @unique
+  name      String
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  semester  Int
+  maxSks    Int      @default(24)
+
+  // Relasi jika mahasiswa ini menjadi asisten dosen di kelas praktikum
+  assistedSchedules Schedule[] @relation("AssistantLecturer")
+  enrollments       CourseEnrollment[]
+}
+
+model CourseEnrollment {
+  id        String   @id @default(uuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([studentId, courseId])
+}
+
+model Course {
+  id        String     @id @default(uuid())
+  code      String     @unique
+  name      String
+  credits   Int
+  type      CourseType @default(THEORY)
+  needsLab  Boolean    @default(false)
+
+  schedules Schedule[]
+  enrollments CourseEnrollment[]
+}
+
+model Class {
+  id        String   @id @default(uuid())
+  name      String   @unique // Contoh: "SI-1A", "SI-3B"
+  semester  Int
+  capacity  Int      @default(25)
+
+  students  Student[]
+  schedules Schedule[]
+}
+
+model Room {
+  id        String   @id @default(uuid())
+  code      String   @unique // Contoh: "101", "204"
+  floor     Int
+  capacity  Int      @default(25)
+  type      RoomType @default(REGULAR)
+
+  schedules Schedule[]
+}
+
+model TimeSlot {
+  id        String   @id @default(uuid())
+  day       String   // Contoh: "Senin", "Selasa"
+  startTime String   // Format: "07:30"
+  endTime   String   // Format: "09:10" (berdasarkan SKS)
+
+  preferences LecturerPreference[]
+  schedules   Schedule[]
+}
+
+model LecturerPreference {
+  id          String   @id @default(uuid())
+  lecturerId  String
+  lecturer    Lecturer @relation(fields: [lecturerId], references: [id], onDelete: Cascade)
+  timeSlotId  String
+  timeSlot    TimeSlot @relation(fields: [timeSlotId], references: [id], onDelete: Cascade)
+  notes       String?
+
+  @@unique([lecturerId, timeSlotId])
+}
+
+model Constraint {
+  id          String   @id @default(uuid())
+  type        String   // Contoh: "LECTURER_CONFLICT", "ROOM_CAPACITY"
+  category    String   // "HARD" atau "SOFT"
+  description String
+  isHard      Boolean  @default(true)
+}
+
+model Schedule {
+  id           String   @id @default(uuid())
+  classId      String
+  class        Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  courseId     String
+  course       Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  
+  // Dosen utama pengampu mata kuliah
+  lecturerId   String
+  lecturer     Lecturer @relation("MainLecturer", fields: [lecturerId], references: [id], onDelete: Cascade)
+  
+  // Asisten dosen (mahasiswa senior) untuk mata kuliah praktikum
+  assistantId  String?
+  assistant    Student? @relation("AssistantLecturer", fields: [assistantId], references: [id], onDelete: SetNull)
+
+  roomId       String
+  room         Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  timeSlotId   String
+  timeSlot     TimeSlot @relation(fields: [timeSlotId], references: [id], onDelete: Cascade)
+  
+  academicYear String   // Contoh: "2025/2026-Ganjil"
+  status       String   // "DRAFT" atau "PUBLISHED"
+
+  conflicts    ScheduleConflict[]
+  revisions    Revision[]
+}
+
+model ScheduleConflict {
+  id           String   @id @default(uuid())
+  scheduleId   String
+  schedule     Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  conflictType String   // "HARD" atau "SOFT"
+  description  String
+  status       String   // "UNRESOLVED" atau "RESOLVED"
+}
+
+model Revision {
+  id           String   @id @default(uuid())
+  scheduleId   String
+  schedule     Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  revisedBy    String   // Nama/ID User Admin
+  reason       String
+  oldData      Json?    // Menyimpan data slot/ruangan sebelum direvisi
+  newData      Json?    // Menyimpan data slot/ruangan setelah direvisi
+  createdAt    DateTime @default(now())
+}
