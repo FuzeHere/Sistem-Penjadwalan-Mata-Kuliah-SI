@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate",
-    "test": "node test_scheduler.js && node test_student.js"
+    "test": "node test_scheduler.js && node test_student.js && node test_swap.js && node test_new_features.js"
   },
   "dependencies": {
     "@prisma/client": "^6.0.0",

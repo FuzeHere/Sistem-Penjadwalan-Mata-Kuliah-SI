@@ -18,6 +18,8 @@ export default function AdminDashboard() {
   // Generator State
   const [generating, setGenerating] = useState(false);
   const [genResult, setGenResult] = useState(null);
+  const [genSemesterType, setGenSemesterType] = useState('GANJIL');
+  const [scheduleWeek, setScheduleWeek] = useState('current'); // 'current' or 'next'
 
   // Master Data Add State
   const [masterTab, setMasterTab] = useState('lecturers');
@@ -68,7 +70,11 @@ export default function AdminDashboard() {
     setGenerating(true);
     setGenResult(null);
     try {
-      const res = await fetch('/api/schedule/generate', { method: 'POST' });
+      const res = await fetch('/api/schedule/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ semesterType: genSemesterType })
+      });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || 'Gagal generate jadwal.');
       
@@ -176,10 +182,16 @@ export default function AdminDashboard() {
 
   const handleExportPDFAll = (classId, className) => {
     const schedules = data.schedules.filter(s => s.classId === classId);
+    const mappedSchedules = scheduleWeek === 'current' ? schedules.map(s => ({
+      ...s,
+      timeSlot: s.tempTimeSlot || s.timeSlot,
+      room: s.tempRoom || s.room
+    })) : schedules;
+
     exportScheduleToPDF({
-      schedules,
-      title: 'JADWAL PERKULIAHAN RESMI',
-      subtitle: `Kelas: ${className} | Tahun Akademik: 2025/2026 - Ganjil`,
+      schedules: mappedSchedules,
+      title: `JADWAL PERKULIAHAN RESMI - ${scheduleWeek === 'current' ? 'MINGGU INI (SEMENTARA)' : 'JADWAL TETAP'}`,
+      subtitle: `Kelas: ${className} | Tahun Akademik: 2025/2026`,
       fileName: `jadwal-kuliah-${className.toLowerCase()}`
     });
   };
@@ -275,6 +287,9 @@ export default function AdminDashboard() {
           <button className={`tab-btn ${activeTab === 'students-sks' ? 'active' : ''}`} onClick={() => setActiveTab('students-sks')}>
             Batas SKS Mahasiswa
           </button>
+          <button className={`tab-btn ${activeTab === 'swap' ? 'active' : ''}`} onClick={() => setActiveTab('swap')}>
+            Tukar Jadwal ({(data.swapRequests || []).filter(s => s.status === 'PENDING').length})
+          </button>
           <button className={`tab-btn ${activeTab === 'konflik' ? 'active' : ''}`} onClick={() => setActiveTab('konflik')}>
             Laporan Bentrok ({data.conflicts.length})
           </button>
@@ -286,7 +301,26 @@ export default function AdminDashboard() {
         {/* Tab contents */}
         {activeTab === 'overview' && (
           <section className="glass-panel animate-fade" style={{ padding: '24px' }}>
-            <h2 style={{ fontSize: '1.25rem', marginBottom: '16px' }}>Hasil Jadwal per Kelas (Telah Diterbitkan: {publishedSchedules.length})</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
+              <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Hasil Jadwal per Kelas (Telah Diterbitkan: {publishedSchedules.length})</h2>
+              
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                  className={`btn ${scheduleWeek === 'current' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ padding: '6px 14px', fontSize: '0.8rem' }}
+                  onClick={() => setScheduleWeek('current')}
+                >
+                  Minggu Ini (Sementara)
+                </button>
+                <button 
+                  className={`btn ${scheduleWeek === 'next' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ padding: '6px 14px', fontSize: '0.8rem' }}
+                  onClick={() => setScheduleWeek('next')}
+                >
+                  Minggu Depan (Tetap)
+                </button>
+              </div>
+            </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
               {data.classes.map(cls => {
@@ -316,6 +350,7 @@ export default function AdminDashboard() {
                             <tr>
                               <th>Hari & Jam</th>
                               <th>Mata Kuliah</th>
+                              <th>SKS</th>
                               <th>Dosen</th>
                               <th>Asisten Dosen</th>
                               <th>Ruangan</th>
@@ -324,41 +359,52 @@ export default function AdminDashboard() {
                             </tr>
                           </thead>
                           <tbody>
-                            {clsSchedules.map(s => (
-                              <tr key={s.id} style={{ backgroundColor: s.status === 'DRAFT' ? 'rgba(217, 119, 6, 0.05)' : 'transparent' }}>
-                                <td>
-                                  <strong>{s.timeSlot?.day}</strong>
-                                  <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{s.timeSlot?.startTime} - {s.timeSlot?.endTime}</span>
-                                </td>
-                                <td>
-                                  <strong>{s.course?.name}</strong>
-                                  <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{s.course?.code} ({s.course?.credits} SKS)</span>
-                                </td>
-                                <td>{s.lecturer?.name}</td>
-                                <td>
-                                  {s.assistant ? (
-                                    <span className="badge badge-accent">{s.assistant.name}</span>
-                                  ) : (
-                                    <span style={{ color: 'var(--text-muted)' }}>-</span>
-                                  )}
-                                </td>
-                                <td><span style={{ color: 'var(--primary)', fontWeight: '600' }}>{s.room?.code}</span></td>
-                                <td>
-                                  <span className={`badge ${s.status === 'PUBLISHED' ? 'badge-primary' : 'badge-warning'}`}>
-                                    {s.status}
-                                  </span>
-                                </td>
-                                <td>
-                                  <button 
-                                    onClick={() => openRevisionModal(s)}
-                                    className="btn btn-secondary" 
-                                    style={{ padding: '4px 10px', fontSize: '0.75rem' }}
-                                  >
-                                    Revisi
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
+                            {clsSchedules.map(s => {
+                              const slot = scheduleWeek === 'current' ? (s.tempTimeSlot || s.timeSlot) : s.timeSlot;
+                              const room = scheduleWeek === 'current' ? (s.tempRoom || s.room) : s.room;
+                              const isTemp = scheduleWeek === 'current' && (s.tempTimeSlotId || s.tempRoomId);
+
+                              return (
+                                <tr key={s.id} style={{ backgroundColor: s.status === 'DRAFT' ? 'rgba(217, 119, 6, 0.05)' : 'transparent' }}>
+                                  <td>
+                                    <strong>{slot?.day}</strong>
+                                    {isTemp && (
+                                      <span className="badge badge-warning" style={{ fontSize: '0.6rem', display: 'block', marginTop: '4px' }}>Sementara</span>
+                                    )}
+                                    <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{slot?.startTime} - {slot?.endTime}</span>
+                                  </td>
+                                  <td>
+                                    <strong>{s.course?.name}</strong>
+                                    <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{s.course?.code}</span>
+                                  </td>
+                                  <td><span className="badge badge-primary">{s.course?.credits} SKS</span></td>
+                                  <td>{s.lecturer?.name}</td>
+                                  <td>
+                                    {s.assistant ? (
+                                      <span className="badge badge-accent">{s.assistant.name}</span>
+                                    ) : (
+                                      <span style={{ color: 'var(--text-muted)' }}>-</span>
+                                    )}
+                                  </td>
+                                  <td><span style={{ color: 'var(--primary)', fontWeight: '600' }}>{room?.code}</span></td>
+                                  <td>
+                                    <span className={`badge ${s.status === 'PUBLISHED' ? 'badge-primary' : 'badge-warning'}`}>
+                                      {s.status}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <button 
+                                      onClick={() => openRevisionModal(s)}
+                                      className="btn btn-secondary" 
+                                      style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                                      disabled={scheduleWeek !== 'current'}
+                                    >
+                                      Revisi
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
@@ -377,6 +423,20 @@ export default function AdminDashboard() {
               Picu generator jadwal berbasis batasan heuristik (constraint-based). Sistem akan otomatis memperhitungkan preferensi waktu dosen, kapasitas ruangan, kecocokan jenis ruangan, dan menghindari bentrok mengajar maupun bentrok asisten dosen yang sedang kuliah.
             </p>
             
+            <div style={{ maxWidth: '300px', margin: '0 auto 24px', display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'left' }}>
+              <label className="form-label" style={{ fontWeight: '600', color: 'var(--text-primary)' }}>Pilih Semester Target Generator:</label>
+              <select 
+                className="form-control form-select"
+                value={genSemesterType}
+                onChange={e => setGenSemesterType(e.target.value)}
+                disabled={generating}
+                style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+              >
+                <option value="GANJIL">Semester Ganjil (1, 3, 5, 7)</option>
+                <option value="GENAP">Semester Genap (2, 4, 6, 8)</option>
+              </select>
+            </div>
+
             <button 
               onClick={handleGenerate}
               className="btn btn-primary"
@@ -425,7 +485,7 @@ export default function AdminDashboard() {
             
             {/* Master sub tabs */}
             <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap' }}>
-              {['lecturers', 'students', 'courses', 'rooms', 'classes'].map(tab => (
+              {['lecturers', 'students', 'courses', 'rooms', 'classes', 'semesters', 'courseLecturers'].map(tab => (
                 <button 
                   key={tab}
                   className={`btn ${masterTab === tab ? 'btn-primary' : 'btn-secondary'}`}
@@ -437,6 +497,8 @@ export default function AdminDashboard() {
                   {tab === 'courses' && 'Mata Kuliah'}
                   {tab === 'rooms' && 'Ruangan'}
                   {tab === 'classes' && 'Kelas'}
+                  {tab === 'semesters' && 'Semester'}
+                  {tab === 'courseLecturers' && 'Penugasan Dosen-MK'}
                 </button>
               ))}
             </div>
@@ -506,12 +568,22 @@ export default function AdminDashboard() {
                       <input type="number" className="form-control" min="1" max="4" required onChange={e => setMasterForm({...masterForm, credits: e.target.value})} value={masterForm.credits || ''} />
                     </div>
                     <div className="form-group">
+                      <label className="form-label">Semester Tingkat</label>
+                      <input type="number" className="form-control" min="1" max="8" required onChange={e => setMasterForm({...masterForm, semester: e.target.value})} value={masterForm.semester || ''} placeholder="Contoh: 1, 2, dst." />
+                    </div>
+                    <div className="form-group">
                       <label className="form-label">Tipe MK</label>
                       <select className="form-control form-select" required onChange={e => setMasterForm({...masterForm, type: e.target.value, needsLab: e.target.value === 'PRACTICAL'})} value={masterForm.type || ''}>
                         <option value="">Pilih Tipe...</option>
                         <option value="THEORY">Teori</option>
                         <option value="PRACTICAL">Praktikum</option>
                       </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">
+                        <input type="checkbox" checked={masterForm.isActive !== false} onChange={e => setMasterForm({...masterForm, isActive: e.target.checked})} style={{ marginRight: '8px' }} />
+                        Aktif untuk Mahasiswa & Jadwal
+                      </label>
                     </div>
                   </>
                 )}
@@ -558,6 +630,48 @@ export default function AdminDashboard() {
                   </>
                 )}
 
+                {masterTab === 'semesters' && (
+                  <>
+                    <div className="form-group">
+                      <label className="form-label">Tahun Akademik</label>
+                      <input type="text" className="form-control" placeholder="Contoh: 2025/2026" required onChange={e => setMasterForm({...masterForm, year: e.target.value})} value={masterForm.year || ''} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Tipe Semester</label>
+                      <select className="form-control form-select" required onChange={e => setMasterForm({...masterForm, type: e.target.value})} value={masterForm.type || ''}>
+                        <option value="">Pilih Tipe...</option>
+                        <option value="GANJIL">Ganjil</option>
+                        <option value="GENAP">Genap</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">
+                        <input type="checkbox" checked={!!masterForm.isActive} onChange={e => setMasterForm({...masterForm, isActive: e.target.checked})} style={{ marginRight: '8px' }} />
+                        Semester Aktif
+                      </label>
+                    </div>
+                  </>
+                )}
+
+                {masterTab === 'courseLecturers' && (
+                  <>
+                    <div className="form-group">
+                      <label className="form-label">Mata Kuliah</label>
+                      <select className="form-control form-select" required onChange={e => setMasterForm({...masterForm, courseId: e.target.value})} value={masterForm.courseId || ''}>
+                        <option value="">Pilih Mata Kuliah...</option>
+                        {data.courses.map(c => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Dosen Pengampu</label>
+                      <select className="form-control form-select" required onChange={e => setMasterForm({...masterForm, lecturerId: e.target.value})} value={masterForm.lecturerId || ''}>
+                        <option value="">Pilih Dosen...</option>
+                        {data.lecturers.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                      </select>
+                    </div>
+                  </>
+                )}
+
                 <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={masterLoading}>
                   {masterLoading ? 'Menyimpan...' : 'Tambah Record'}
                 </button>
@@ -571,10 +685,12 @@ export default function AdminDashboard() {
                     <thead>
                       <tr>
                         {masterTab === 'lecturers' && <><th>NIDN</th><th>Nama Dosen</th><th>Email</th></>}
-                        {masterTab === 'students' && <><th>NIM</th><th>Nama</th><th>Smt</th></>}
-                        {masterTab === 'courses' && <><th>Kode</th><th>Nama MK</th><th>SKS</th><th>Tipe</th></>}
+                        {masterTab === 'students' && <><th>NIM</th><th>Nama</th><th>Smt</th><th>Kelas</th><th>Status KRS</th><th>Aksi</th></>}
+                        {masterTab === 'courses' && <><th>Kode</th><th>Nama MK</th><th>SKS</th><th>Tipe</th><th>Smt</th><th>Status</th><th>Aksi</th></>}
                         {masterTab === 'rooms' && <><th>Kode</th><th>Lantai</th><th>Kapasitas</th><th>Tipe</th></>}
                         {masterTab === 'classes' && <><th>Nama Kelas</th><th>Smt</th><th>Kapasitas</th></>}
+                        {masterTab === 'semesters' && <><th>Tahun</th><th>Tipe</th><th>Status</th></>}
+                        {masterTab === 'courseLecturers' && <><th>Mata Kuliah</th><th>Dosen Pengampu</th></>}
                       </tr>
                     </thead>
                     <tbody>
@@ -582,16 +698,22 @@ export default function AdminDashboard() {
                         <tr key={item.id}><td>{item.nidn}</td><td>{item.name}</td><td>{item.email}</td></tr>
                       ))}
                       {masterTab === 'students' && data.students.map(item => (
-                        <tr key={item.id}><td>{item.nim}</td><td>{item.name}</td><td>Sem. {item.semester}</td></tr>
+                        <StudentRow key={item.id} student={item} classes={data.classes} hasEnrolled={data.courseEnrollments?.some(e => e.studentId === item.id)} onSave={fetchData} />
                       ))}
                       {masterTab === 'courses' && data.courses.map(item => (
-                        <tr key={item.id}><td>{item.code}</td><td>{item.name}</td><td>{item.credits}</td><td>{item.type}</td></tr>
+                        <CourseRow key={item.id} course={item} onSave={fetchData} />
                       ))}
                       {masterTab === 'rooms' && data.rooms.map(item => (
                         <tr key={item.id}><td>{item.code}</td><td>{item.floor}</td><td>{item.capacity} mhs</td><td>{item.type}</td></tr>
                       ))}
                       {masterTab === 'classes' && data.classes.map(item => (
                         <tr key={item.id}><td>{item.name}</td><td>{item.semester}</td><td>{item.capacity} mhs</td></tr>
+                      ))}
+                      {masterTab === 'semesters' && (data.semesters || []).map(item => (
+                        <tr key={item.id}><td>{item.year}</td><td>{item.type}</td><td><span className={`badge ${item.isActive ? 'badge-accent' : 'badge-secondary'}`}>{item.isActive ? 'Aktif' : 'Tidak Aktif'}</span></td></tr>
+                      ))}
+                      {masterTab === 'courseLecturers' && (data.courseLecturers || []).map(item => (
+                        <tr key={item.id}><td>{item.course?.code} - {item.course?.name}</td><td>{item.lecturer?.name}</td></tr>
                       ))}
                     </tbody>
                   </table>
@@ -667,6 +789,51 @@ export default function AdminDashboard() {
                             <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                               Ruang/Slot: {data.rooms.find(r => r.id === rev.oldData.roomId)?.code || 'Lama'} ➡️ {data.rooms.find(r => r.id === rev.newData.roomId)?.code || 'Baru'}
                             </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        )}
+
+        {activeTab === 'swap' && (
+          <section className="glass-panel animate-fade" style={{ padding: '24px' }}>
+            <h2 style={{ fontSize: '1.25rem', marginBottom: '16px' }}>Permintaan Tukar Jadwal Antar Dosen</h2>
+            {(data.swapRequests || []).length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '32px' }}>Belum ada permintaan tukar jadwal.</p>
+            ) : (
+              <div className="table-container">
+                <table className="table-premium" style={{ fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr>
+                      <th>Pengaju</th>
+                      <th>Jadwal Pengaju</th>
+                      <th>Dosen Tujuan</th>
+                      <th>Jadwal Tujuan</th>
+                      <th>Alasan</th>
+                      <th>Status</th>
+                      <th>Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(data.swapRequests || []).map(sr => (
+                      <tr key={sr.id}>
+                        <td><strong>{sr.requester?.name}</strong></td>
+                        <td>{sr.requesterSchedule?.course?.name} ({sr.requesterSchedule?.timeSlot?.day} {sr.requesterSchedule?.timeSlot?.startTime})</td>
+                        <td><strong>{sr.target?.name}</strong></td>
+                        <td>{sr.targetSchedule?.course?.name} ({sr.targetSchedule?.timeSlot?.day} {sr.targetSchedule?.timeSlot?.startTime})</td>
+                        <td>{sr.reason}</td>
+                        <td><span className={`badge ${sr.status === 'PENDING' ? 'badge-warning' : sr.status === 'APPROVED' ? 'badge-accent' : 'badge-danger'}`}>{sr.status}</span></td>
+                        <td>
+                          {sr.status === 'PENDING' && (
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              <button className="btn btn-primary" style={{ padding: '4px 10px', fontSize: '0.75rem' }} onClick={async () => { if (!confirm('Setujui tukar jadwal ini?')) return; const res = await fetch('/api/schedule/swap', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ swapId: sr.id, status: 'APPROVED' }) }); if (res.ok) { alert('Tukar jadwal disetujui!'); fetchData(); } }}>Setujui</button>
+                              <button className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.75rem', color: 'var(--danger)' }} onClick={async () => { if (!confirm('Tolak tukar jadwal ini?')) return; const res = await fetch('/api/schedule/swap', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ swapId: sr.id, status: 'REJECTED', adminNote: 'Ditolak oleh admin' }) }); if (res.ok) { alert('Tukar jadwal ditolak.'); fetchData(); } }}>Tolak</button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -833,6 +1000,183 @@ function StudentSksRow({ student, onSave }) {
           max="24"
           style={{ width: '80px', padding: '6px 12px', display: 'inline-block' }} 
         /> SKS
+      </td>
+      <td>
+        <button 
+          onClick={handleUpdate} 
+          className="btn btn-primary" 
+          style={{ padding: '6px 14px', fontSize: '0.8rem' }}
+          disabled={updating}
+        >
+          {updating ? 'Menyimpan...' : 'Simpan'}
+        </button>
+      </td>
+    </tr>
+  );
+}
+
+function StudentRow({ student, classes, hasEnrolled, onSave }) {
+  const [semester, setSemester] = useState(student.semester || 1);
+  const [classId, setClassId] = useState(student.classId || '');
+  const [updating, setUpdating] = useState(false);
+
+  const handleUpdate = async () => {
+    setUpdating(true);
+    try {
+      const res = await fetch('/api/student/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId: student.id, semester, classId })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Gagal mengubah data Mahasiswa');
+      }
+      alert(`Data Mahasiswa ${student.name} berhasil diperbarui!`);
+      if (onSave) onSave();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleResetKrs = async () => {
+    if (!confirm(`Apakah Anda yakin ingin mereset KRS ${student.name}? Mahasiswa akan diberikan kesempatan untuk memilih ulang mata kuliah.`)) {
+      return;
+    }
+    setUpdating(true);
+    try {
+      const res = await fetch('/api/student/reset-krs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId: student.id })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Gagal mereset KRS Mahasiswa');
+      }
+      alert(`KRS Mahasiswa ${student.name} berhasil direset! Mahasiswa sekarang bisa memilih ulang.`);
+      if (onSave) onSave();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  return (
+    <tr>
+      <td><strong>{student.nim}</strong></td>
+      <td>{student.name}</td>
+      <td>
+        <input 
+          type="number" 
+          className="form-control" 
+          value={semester} 
+          onChange={e => setSemester(parseInt(e.target.value))} 
+          min="1" 
+          max="8"
+          style={{ width: '70px', padding: '6px 12px', display: 'inline-block' }} 
+        />
+      </td>
+      <td>
+        <select 
+          className="form-control form-select" 
+          value={classId} 
+          onChange={e => setClassId(e.target.value)}
+          style={{ width: '120px', padding: '6px 12px', display: 'inline-block' }}
+        >
+          <option value="">Pilih Kelas...</option>
+          {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+      </td>
+      <td>
+        {hasEnrolled ? (
+          <span className="badge badge-accent" style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>KRS Terkunci</span>
+        ) : (
+          <span className="badge badge-secondary" style={{ fontSize: '0.75rem' }}>Belum Isi KRS</span>
+        )}
+      </td>
+      <td>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button 
+            onClick={handleUpdate} 
+            className="btn btn-primary" 
+            style={{ padding: '6px 14px', fontSize: '0.8rem' }}
+            disabled={updating}
+          >
+            {updating ? 'Menyimpan...' : 'Simpan'}
+          </button>
+          {hasEnrolled && (
+            <button 
+              onClick={handleResetKrs} 
+              className="btn btn-secondary" 
+              style={{ padding: '6px 14px', fontSize: '0.8rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)' }}
+              disabled={updating}
+            >
+              Pilih Ulang KRS
+            </button>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function CourseRow({ course, onSave }) {
+  const [semester, setSemester] = useState(course.semester || 1);
+  const [isActive, setIsActive] = useState(course.isActive !== false);
+  const [updating, setUpdating] = useState(false);
+
+  const handleUpdate = async () => {
+    setUpdating(true);
+    try {
+      const res = await fetch('/api/course/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courseId: course.id, semester, isActive })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Gagal mengubah Mata Kuliah');
+      }
+      alert(`Mata Kuliah ${course.name} berhasil diperbarui!`);
+      if (onSave) onSave();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  return (
+    <tr>
+      <td><strong>{course.code}</strong></td>
+      <td>{course.name}</td>
+      <td>{course.credits} SKS</td>
+      <td>{course.type === 'THEORY' ? 'Teori' : 'Praktikum'}</td>
+      <td>
+        <input 
+          type="number" 
+          className="form-control" 
+          value={semester} 
+          onChange={e => setSemester(parseInt(e.target.value))} 
+          min="1" 
+          max="8"
+          style={{ width: '70px', padding: '6px 12px', display: 'inline-block' }} 
+        />
+      </td>
+      <td>
+        <label style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}>
+          <input 
+            type="checkbox" 
+            checked={isActive} 
+            onChange={e => setIsActive(e.target.checked)} 
+            style={{ marginRight: '6px' }}
+          />
+          {isActive ? 'Aktif' : 'Non-aktif'}
+        </label>
       </td>
       <td>
         <button 

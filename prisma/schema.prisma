@@ -23,6 +23,17 @@ enum CourseType {
   PRACTICAL
 }
 
+enum SemesterType {
+  GANJIL
+  GENAP
+}
+
+enum SwapStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   id        String   @id @default(uuid())
   name      String
@@ -36,6 +47,17 @@ model User {
   student   Student?
 }
 
+// Data master semester akademik
+model Semester {
+  id        String       @id @default(uuid())
+  year      String       // Contoh: "2025/2026"
+  type      SemesterType // GANJIL atau GENAP
+  isActive  Boolean      @default(false)
+  createdAt DateTime     @default(now())
+
+  @@unique([year, type])
+}
+
 model Lecturer {
   id        String   @id @default(uuid())
   userId    String   @unique
@@ -46,8 +68,22 @@ model Lecturer {
   phone     String?
   status    Boolean  @default(true)
 
-  preferences LecturerPreference[]
-  schedules   Schedule[]           @relation("MainLecturer")
+  preferences      LecturerPreference[]
+  schedules        Schedule[]           @relation("MainLecturer")
+  courseLecturers  CourseLecturer[]
+  swapRequestsFrom SwapRequest[]        @relation("SwapRequester")
+  swapRequestsTo   SwapRequest[]        @relation("SwapTarget")
+}
+
+// Tabel penugasan Dosen ke Mata Kuliah (data master)
+model CourseLecturer {
+  id         String   @id @default(uuid())
+  courseId   String
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lecturerId String
+  lecturer   Lecturer @relation(fields: [lecturerId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, lecturerId])
 }
 
 model Student {
@@ -84,9 +120,12 @@ model Course {
   credits   Int
   type      CourseType @default(THEORY)
   needsLab  Boolean    @default(false)
+  semester  Int        @default(1)
+  isActive  Boolean    @default(true)
 
-  schedules Schedule[]
-  enrollments CourseEnrollment[]
+  schedules       Schedule[]
+  enrollments     CourseEnrollment[]
+  courseLecturers CourseLecturer[]
 }
 
 model Class {
@@ -115,19 +154,18 @@ model TimeSlot {
   startTime String   // Format: "07:30"
   endTime   String   // Format: "09:10" (berdasarkan SKS)
 
-  preferences LecturerPreference[]
-  schedules   Schedule[]
+  schedules Schedule[]
 }
 
+// Preferensi dosen: per HARI saja (bukan per slot waktu)
 model LecturerPreference {
-  id          String   @id @default(uuid())
-  lecturerId  String
-  lecturer    Lecturer @relation(fields: [lecturerId], references: [id], onDelete: Cascade)
-  timeSlotId  String
-  timeSlot    TimeSlot @relation(fields: [timeSlotId], references: [id], onDelete: Cascade)
-  notes       String?
+  id           String   @id @default(uuid())
+  lecturerId   String
+  lecturer     Lecturer @relation(fields: [lecturerId], references: [id], onDelete: Cascade)
+  preferredDay String   // Contoh: "Senin", "Rabu", "Jumat"
+  notes        String?
 
-  @@unique([lecturerId, timeSlotId])
+  @@unique([lecturerId, preferredDay])
 }
 
 model Constraint {
@@ -158,11 +196,34 @@ model Schedule {
   timeSlotId   String
   timeSlot     TimeSlot @relation(fields: [timeSlotId], references: [id], onDelete: Cascade)
   
+  tempRoomId     String?
+  tempTimeSlotId String?
+
   academicYear String   // Contoh: "2025/2026-Ganjil"
   status       String   // "DRAFT" atau "PUBLISHED"
 
   conflicts    ScheduleConflict[]
   revisions    Revision[]
+
+  swapRequestsAsRequester SwapRequest[] @relation("SwapRequesterSchedule")
+  swapRequestsAsTarget    SwapRequest[] @relation("SwapTargetSchedule")
+}
+
+// Permintaan tukar jadwal antar dosen
+model SwapRequest {
+  id                    String     @id @default(uuid())
+  requesterId           String
+  requester             Lecturer   @relation("SwapRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  requesterScheduleId   String
+  requesterSchedule     Schedule   @relation("SwapRequesterSchedule", fields: [requesterScheduleId], references: [id], onDelete: Cascade)
+  targetId              String
+  target                Lecturer   @relation("SwapTarget", fields: [targetId], references: [id], onDelete: Cascade)
+  targetScheduleId      String
+  targetSchedule        Schedule   @relation("SwapTargetSchedule", fields: [targetScheduleId], references: [id], onDelete: Cascade)
+  status                SwapStatus @default(PENDING)
+  reason                String
+  adminNote             String?
+  createdAt             DateTime   @default(now())
 }
 
 model ScheduleConflict {

@@ -42,13 +42,14 @@ export function exportScheduleToPDF({ schedules, title, subtitle, fileName = 'ja
   doc.setLineWidth(0.5);
   doc.line(14, 42, 283, 42);
 
-  // Table columns
+  // Table columns (with separate SKS column)
   const tableColumn = [
     'No',
     'Hari',
     'Waktu',
     'Kelas',
     'Mata Kuliah',
+    'SKS',
     'Dosen Pengampu',
     'Asisten Dosen',
     'Ruangan'
@@ -60,7 +61,8 @@ export function exportScheduleToPDF({ schedules, title, subtitle, fileName = 'ja
     item.timeSlot?.day || '-',
     `${item.timeSlot?.startTime || ''} - ${item.timeSlot?.endTime || ''}`,
     item.class?.name || '-',
-    `${item.course?.name || '-'} (${item.course?.credits || 0} SKS)`,
+    item.course?.name || '-',
+    item.course?.credits || 0,
     item.lecturer?.name || '-',
     item.assistant?.name || '-',
     item.room?.code || '-'
@@ -89,12 +91,13 @@ export function exportScheduleToPDF({ schedules, title, subtitle, fileName = 'ja
     columnStyles: {
       0: { cellWidth: 10 },
       1: { cellWidth: 20 },
-      2: { cellWidth: 30 },
-      3: { cellWidth: 20 },
-      4: { cellWidth: 70 },
-      5: { cellWidth: 60 },
-      6: { cellWidth: 50 },
-      7: { cellWidth: 20 }
+      2: { cellWidth: 28 },
+      3: { cellWidth: 18 },
+      4: { cellWidth: 60 },
+      5: { cellWidth: 12, halign: 'center' },
+      6: { cellWidth: 55 },
+      7: { cellWidth: 45 },
+      8: { cellWidth: 20 }
     },
     margin: { left: 14, right: 14 },
     didDrawPage: (data) => {

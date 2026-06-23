@@ -177,6 +177,37 @@ function testAssistantLecturerStudyingConflict() {
   console.log('✅ testAssistantLecturerStudyingConflict passed.');
 }
 
+function testLecturerDayPreference() {
+  console.log('Running testLecturerDayPreference...');
+  const customTimeSlots = [
+    { id: 't1', day: 'Senin', startTime: '07:30', endTime: '09:10' },
+    { id: 't2', day: 'Rabu', startTime: '07:30', endTime: '09:10' }
+  ];
+
+  const lecturerPreferences = [
+    { id: 'pref1', lecturerId: 'l1', preferredDay: 'Rabu' }
+  ];
+
+  const offerings = [
+    { classId: 'c1', courseId: 'co1', lecturerId: 'l1', assistantId: null, academicYear: '2025' }
+  ];
+
+  const result = generateSchedule({
+    offerings,
+    courses: baseCourses,
+    classes: baseClasses,
+    lecturers: baseLecturers,
+    rooms: [baseRooms[0]], // Only r1
+    timeSlots: customTimeSlots,
+    lecturerPreferences,
+    students: baseStudents
+  });
+
+  assert(result.scheduled.length === 1, 'Should schedule 1 offering');
+  assert(result.scheduled[0].timeSlotId === 't2', 'Should prioritize Wednesdays (t2) for lecturer l1');
+  console.log('✅ testLecturerDayPreference passed.');
+}
+
 // Run all tests
 try {
   testBasicScheduling();
@@ -184,6 +215,7 @@ try {
   testRoomCapacityConflict();
   testRoomTypeMatch();
   testAssistantLecturerStudyingConflict();
+  testLecturerDayPreference();
   console.log('\n🎉 ALL SCHEDULER TESTS PASSED SUCCESSFULLY! (TDD Verified)');
 } catch (err) {
   console.error('\n❌ TEST SUITE FAILED:');

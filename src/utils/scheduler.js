@@ -64,13 +64,13 @@ export function generateSchedule({
   const timeSlotMap = new Map(timeSlots.map(t => [t.id, t]));
   const roomMap = new Map(rooms.map(r => [r.id, r]));
 
-  // Index lecturer preferences: lecturerId -> Set of timeSlotId
+  // Index lecturer preferences: lecturerId -> Set of preferredDay (e.g. "Senin", "Rabu")
   const prefMap = new Map();
   lecturerPreferences.forEach(p => {
     if (!prefMap.has(p.lecturerId)) {
       prefMap.set(p.lecturerId, new Set());
     }
-    prefMap.get(p.lecturerId).add(p.timeSlotId);
+    prefMap.get(p.lecturerId).add(p.preferredDay);
   });
 
   // Sort offerings: Prioritize PRACTICAL courses, then courses with higher credits, then larger classes
@@ -208,10 +208,10 @@ export function generateSchedule({
         // Scoring for Soft Constraints
         let score = 100;
 
-        // Soft Constraint 1: Lecturer Preference
+        // Soft Constraint 1: Lecturer Preference (day-based)
         const lecturerPrefs = prefMap.get(lecturer.id);
-        if (lecturerPrefs && lecturerPrefs.has(slot.id)) {
-          score += 50; // High bonus for lecturer's preferred time slot
+        if (lecturerPrefs && lecturerPrefs.has(slot.day)) {
+          score += 50; // High bonus for lecturer's preferred day
         }
 
         // Soft Constraint 2: Prefer Regular room for Theory, Lab room for Lab

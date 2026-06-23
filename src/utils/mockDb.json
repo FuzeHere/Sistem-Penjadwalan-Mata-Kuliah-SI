@@ -50,6 +50,26 @@
       "role": "STUDENT"
     }
   ],
+  "semesters": [
+    {
+      "id": "sem1",
+      "year": "2025/2026",
+      "type": "GANJIL",
+      "isActive": true
+    },
+    {
+      "id": "sem2",
+      "year": "2024/2025",
+      "type": "GENAP",
+      "isActive": false
+    },
+    {
+      "id": "sem3",
+      "year": "2024/2025",
+      "type": "GANJIL",
+      "isActive": false
+    }
+  ],
   "lecturers": [
     {
       "id": "l1",
@@ -86,6 +106,98 @@
       "email": "sitinurul@uin-alauddin.ac.id",
       "phone": "081234567893",
       "status": true
+    }
+  ],
+  "courseLecturers": [
+    {
+      "id": "cl1",
+      "courseId": "co1",
+      "lecturerId": "l1"
+    },
+    {
+      "id": "cl2",
+      "courseId": "co1",
+      "lecturerId": "l4"
+    },
+    {
+      "id": "cl3",
+      "courseId": "co2",
+      "lecturerId": "l2"
+    },
+    {
+      "id": "cl4",
+      "courseId": "co2",
+      "lecturerId": "l1"
+    },
+    {
+      "id": "cl5",
+      "courseId": "co3",
+      "lecturerId": "l2"
+    },
+    {
+      "id": "cl6",
+      "courseId": "co3",
+      "lecturerId": "l3"
+    },
+    {
+      "id": "cl7",
+      "courseId": "co4",
+      "lecturerId": "l3"
+    },
+    {
+      "id": "cl8",
+      "courseId": "co4",
+      "lecturerId": "l2"
+    },
+    {
+      "id": "cl9",
+      "courseId": "co5",
+      "lecturerId": "l4"
+    },
+    {
+      "id": "cl10",
+      "courseId": "co5",
+      "lecturerId": "l3"
+    },
+    {
+      "id": "cl11",
+      "courseId": "co6",
+      "lecturerId": "l1"
+    },
+    {
+      "id": "cl12",
+      "courseId": "co6",
+      "lecturerId": "l4"
+    },
+    {
+      "id": "cl13",
+      "courseId": "co7",
+      "lecturerId": "l1"
+    },
+    {
+      "id": "cl14",
+      "courseId": "co7",
+      "lecturerId": "l4"
+    },
+    {
+      "id": "cl15",
+      "courseId": "co8",
+      "lecturerId": "l2"
+    },
+    {
+      "id": "cl16",
+      "courseId": "co8",
+      "lecturerId": "l1"
+    },
+    {
+      "id": "cl17",
+      "courseId": "co9",
+      "lecturerId": "l3"
+    },
+    {
+      "id": "cl18",
+      "courseId": "co9",
+      "lecturerId": "l2"
     }
   ],
   "classes": [
@@ -207,7 +319,9 @@
       "name": "Pengantar Sistem Informasi",
       "credits": 2,
       "type": "THEORY",
-      "needsLab": false
+      "needsLab": false,
+      "semester": 1,
+      "isActive": true
     },
     {
       "id": "co2",
@@ -215,7 +329,9 @@
       "name": "Dasar Pemrograman",
       "credits": 3,
       "type": "THEORY",
-      "needsLab": false
+      "needsLab": false,
+      "semester": 1,
+      "isActive": true
     },
     {
       "id": "co3",
@@ -223,7 +339,9 @@
       "name": "Praktikum Dasar Pemrograman",
       "credits": 1,
       "type": "PRACTICAL",
-      "needsLab": true
+      "needsLab": true,
+      "semester": 1,
+      "isActive": true
     },
     {
       "id": "co4",
@@ -231,7 +349,9 @@
       "name": "Basis Data",
       "credits": 3,
       "type": "THEORY",
-      "needsLab": false
+      "needsLab": false,
+      "semester": 3,
+      "isActive": true
     },
     {
       "id": "co5",
@@ -239,7 +359,9 @@
       "name": "Praktikum Basis Data",
       "credits": 1,
       "type": "PRACTICAL",
-      "needsLab": true
+      "needsLab": true,
+      "semester": 3,
+      "isActive": true
     },
     {
       "id": "co6",
@@ -247,7 +369,9 @@
       "name": "Analisis & Perancangan Sistem",
       "credits": 3,
       "type": "THEORY",
-      "needsLab": false
+      "needsLab": false,
+      "semester": 3,
+      "isActive": true
     },
     {
       "id": "co7",
@@ -255,7 +379,9 @@
       "name": "Pemrograman Web Lanjut",
       "credits": 3,
       "type": "THEORY",
-      "needsLab": false
+      "needsLab": false,
+      "semester": 5,
+      "isActive": true
     },
     {
       "id": "co8",
@@ -263,7 +389,9 @@
       "name": "Praktikum Pemrograman Web Lanjut",
       "credits": 1,
       "type": "PRACTICAL",
-      "needsLab": true
+      "needsLab": true,
+      "semester": 5,
+      "isActive": true
     },
     {
       "id": "co9",
@@ -271,7 +399,39 @@
       "name": "Manajemen Proyek SI",
       "credits": 3,
       "type": "THEORY",
-      "needsLab": false
+      "needsLab": false,
+      "semester": 5,
+      "isActive": true
+    },
+    {
+      "id": "co10",
+      "code": "SI-201",
+      "name": "Struktur Data",
+      "credits": 3,
+      "type": "THEORY",
+      "needsLab": false,
+      "semester": 2,
+      "isActive": false
+    },
+    {
+      "id": "co11",
+      "code": "SI-201P",
+      "name": "Praktikum Struktur Data",
+      "credits": 1,
+      "type": "PRACTICAL",
+      "needsLab": true,
+      "semester": 2,
+      "isActive": false
+    },
+    {
+      "id": "co-brtpgp0",
+      "code": "SI-103",
+      "name": "Pemrograman Lanjutan",
+      "credits": 3,
+      "semester": 2,
+      "type": "THEORY",
+      "needsLab": false,
+      "isActive": true
     }
   ],
   "rooms": [
@@ -431,251 +591,267 @@
     {
       "id": "p1",
       "lecturerId": "l1",
-      "timeSlotId": "t1",
-      "notes": "Hanya bisa pagi"
+      "preferredDay": "Senin",
+      "notes": "Prefer mengajar hari Senin"
     },
     {
       "id": "p2",
+      "lecturerId": "l1",
+      "preferredDay": "Rabu",
+      "notes": "Prefer juga hari Rabu"
+    },
+    {
+      "id": "p3",
       "lecturerId": "l2",
-      "timeSlotId": "t6",
-      "notes": "Selasa siang lebih baik"
+      "preferredDay": "Selasa",
+      "notes": "Selasa lebih nyaman"
+    },
+    {
+      "id": "p4",
+      "lecturerId": "l2",
+      "preferredDay": "Kamis",
+      "notes": ""
     }
   ],
   "schedules": [
     {
-      "id": "sch1",
-      "classId": "c1",
-      "courseId": "co1",
-      "lecturerId": "l1",
-      "assistantId": null,
-      "roomId": "r1",
-      "timeSlotId": "t1",
-      "academicYear": "2025/2026-Ganjil",
-      "status": "PUBLISHED"
-    },
-    {
-      "id": "sch2",
-      "classId": "c1",
-      "courseId": "co2",
-      "lecturerId": "l2",
-      "assistantId": null,
-      "roomId": "r2",
-      "timeSlotId": "t2",
-      "academicYear": "2025/2026-Ganjil",
-      "status": "PUBLISHED"
-    },
-    {
-      "id": "sch3",
+      "id": "4oefzhk",
       "classId": "c1",
       "courseId": "co3",
       "lecturerId": "l2",
       "assistantId": "s5",
       "roomId": "r3",
-      "timeSlotId": "t3",
+      "timeSlotId": "t5",
+      "tempRoomId": null,
+      "tempTimeSlotId": null,
       "academicYear": "2025/2026-Ganjil",
       "status": "PUBLISHED"
     },
     {
-      "id": "t2dz857",
-      "classId": "c1",
-      "courseId": "co3",
-      "lecturerId": "l3",
-      "assistantId": "s5",
-      "roomId": "r3",
-      "timeSlotId": "t1",
-      "academicYear": "2025/2026-Ganjil",
-      "status": "PUBLISHED"
-    },
-    {
-      "id": "5jatmh4",
+      "id": "d1dhqgi",
       "classId": "c2",
       "courseId": "co3",
-      "lecturerId": "l2",
+      "lecturerId": "l3",
       "assistantId": "s6",
       "roomId": "r3",
-      "timeSlotId": "t6",
+      "timeSlotId": "t1",
+      "tempRoomId": null,
+      "tempTimeSlotId": null,
       "academicYear": "2025/2026-Ganjil",
       "status": "PUBLISHED"
     },
     {
-      "id": "qeoopi8",
+      "id": "9npbaix",
       "classId": "c3",
       "courseId": "co5",
       "lecturerId": "l4",
       "assistantId": "s7",
       "roomId": "r5",
       "timeSlotId": "t1",
+      "tempRoomId": null,
+      "tempTimeSlotId": null,
       "academicYear": "2025/2026-Ganjil",
       "status": "PUBLISHED"
     },
     {
-      "id": "oxg5v1p",
+      "id": "7g3f47u",
       "classId": "c4",
       "courseId": "co5",
       "lecturerId": "l3",
       "assistantId": "s8",
       "roomId": "r3",
       "timeSlotId": "t2",
+      "tempRoomId": null,
+      "tempTimeSlotId": null,
       "academicYear": "2025/2026-Ganjil",
       "status": "PUBLISHED"
     },
     {
-      "id": "nba955u",
+      "id": "g05szqa",
       "classId": "c5",
       "courseId": "co8",
       "lecturerId": "l2",
       "assistantId": "s5",
-      "roomId": "r5",
-      "timeSlotId": "t2",
+      "roomId": "r3",
+      "timeSlotId": "t6",
+      "tempRoomId": null,
+      "tempTimeSlotId": null,
       "academicYear": "2025/2026-Ganjil",
       "status": "PUBLISHED"
     },
     {
-      "id": "lqub0h4",
+      "id": "6oexi5a",
       "classId": "c6",
       "courseId": "co8",
       "lecturerId": "l1",
       "assistantId": "s6",
       "roomId": "r3",
       "timeSlotId": "t3",
+      "tempRoomId": null,
+      "tempTimeSlotId": null,
       "academicYear": "2025/2026-Ganjil",
       "status": "PUBLISHED"
     },
     {
-      "id": "2hbjecz",
+      "id": "hwxrclz",
       "classId": "c1",
       "courseId": "co2",
       "lecturerId": "l2",
       "assistantId": null,
       "roomId": "r1",
-      "timeSlotId": "t10",
+      "timeSlotId": "t14",
+      "tempRoomId": null,
+      "tempTimeSlotId": null,
       "academicYear": "2025/2026-Ganjil",
       "status": "PUBLISHED"
     },
     {
-      "id": "s04ph0t",
+      "id": "1aor440",
       "classId": "c2",
       "courseId": "co2",
       "lecturerId": "l1",
       "assistantId": null,
       "roomId": "r1",
       "timeSlotId": "t2",
+      "tempRoomId": null,
+      "tempTimeSlotId": null,
       "academicYear": "2025/2026-Ganjil",
       "status": "PUBLISHED"
     },
     {
-      "id": "ycww9bx",
+      "id": "i1gtxqv",
       "classId": "c3",
       "courseId": "co4",
       "lecturerId": "l3",
       "assistantId": null,
       "roomId": "r1",
       "timeSlotId": "t6",
+      "tempRoomId": null,
+      "tempTimeSlotId": null,
       "academicYear": "2025/2026-Ganjil",
       "status": "PUBLISHED"
     },
     {
-      "id": "02s0wgz",
+      "id": "te96y8j",
       "classId": "c3",
       "courseId": "co6",
       "lecturerId": "l1",
       "assistantId": null,
-      "roomId": "r2",
+      "roomId": "r1",
       "timeSlotId": "t10",
+      "tempRoomId": null,
+      "tempTimeSlotId": null,
       "academicYear": "2025/2026-Ganjil",
       "status": "PUBLISHED"
     },
     {
-      "id": "fx8q11s",
+      "id": "76qd9uc",
       "classId": "c4",
       "courseId": "co4",
       "lecturerId": "l2",
       "assistantId": null,
-      "roomId": "r1",
-      "timeSlotId": "t14",
+      "roomId": "r2",
+      "timeSlotId": "t10",
+      "tempRoomId": null,
+      "tempTimeSlotId": null,
       "academicYear": "2025/2026-Ganjil",
       "status": "PUBLISHED"
     },
     {
-      "id": "gojm1ef",
+      "id": "py0ajbr",
       "classId": "c4",
       "courseId": "co6",
       "lecturerId": "l4",
       "assistantId": null,
       "roomId": "r2",
       "timeSlotId": "t6",
+      "tempRoomId": null,
+      "tempTimeSlotId": null,
       "academicYear": "2025/2026-Ganjil",
       "status": "PUBLISHED"
     },
     {
-      "id": "1my6s09",
+      "id": "sutxjlh",
       "classId": "c5",
       "courseId": "co7",
       "lecturerId": "l1",
       "assistantId": null,
       "roomId": "r2",
       "timeSlotId": "t14",
+      "tempRoomId": null,
+      "tempTimeSlotId": null,
       "academicYear": "2025/2026-Ganjil",
       "status": "PUBLISHED"
     },
     {
-      "id": "8kd0sj7",
+      "id": "nntchtq",
       "classId": "c5",
       "courseId": "co9",
       "lecturerId": "l3",
       "assistantId": null,
       "roomId": "r4",
       "timeSlotId": "t10",
+      "tempRoomId": null,
+      "tempTimeSlotId": null,
       "academicYear": "2025/2026-Ganjil",
       "status": "PUBLISHED"
     },
     {
-      "id": "rlsen0u",
+      "id": "2a7lgmh",
       "classId": "c6",
       "courseId": "co7",
       "lecturerId": "l4",
       "assistantId": null,
       "roomId": "r4",
       "timeSlotId": "t14",
+      "tempRoomId": null,
+      "tempTimeSlotId": null,
       "academicYear": "2025/2026-Ganjil",
       "status": "PUBLISHED"
     },
     {
-      "id": "yjgvmgr",
+      "id": "i4u8bgv",
       "classId": "c6",
       "courseId": "co9",
       "lecturerId": "l2",
       "assistantId": null,
       "roomId": "r1",
       "timeSlotId": "t18",
+      "tempRoomId": null,
+      "tempTimeSlotId": null,
       "academicYear": "2025/2026-Ganjil",
       "status": "PUBLISHED"
     },
     {
-      "id": "u8y3ggm",
+      "id": "z04813n",
       "classId": "c1",
       "courseId": "co1",
       "lecturerId": "l1",
       "assistantId": null,
       "roomId": "r1",
-      "timeSlotId": "t4",
+      "timeSlotId": "t1",
+      "tempRoomId": null,
+      "tempTimeSlotId": null,
       "academicYear": "2025/2026-Ganjil",
       "status": "PUBLISHED"
     },
     {
-      "id": "dm7108k",
+      "id": "9ppxfz1",
       "classId": "c2",
       "courseId": "co1",
       "lecturerId": "l4",
       "assistantId": null,
       "roomId": "r1",
       "timeSlotId": "t3",
+      "tempRoomId": null,
+      "tempTimeSlotId": null,
       "academicYear": "2025/2026-Ganjil",
       "status": "PUBLISHED"
     }
   ],
   "conflicts": [],
   "revisions": [],
+  "swapRequests": [],
   "courseEnrollments": [
     {
       "id": "enr-s5-co2-o8b",
@@ -690,10 +866,112 @@
       "createdAt": "2026-06-16T12:56:27.590Z"
     },
     {
-      "id": "enr-s1-co1-9pb",
-      "studentId": "s1",
+      "id": "enr-s2-co1-d9g",
+      "studentId": "s2",
       "courseId": "co1",
-      "createdAt": "2026-06-16T13:31:55.873Z"
+      "createdAt": "2026-06-23T07:33:36.018Z"
+    },
+    {
+      "id": "enr-s2-co2-3bv",
+      "studentId": "s2",
+      "courseId": "co2",
+      "createdAt": "2026-06-23T07:33:36.018Z"
+    },
+    {
+      "id": "enr-s2-co3-jmx",
+      "studentId": "s2",
+      "courseId": "co3",
+      "createdAt": "2026-06-23T07:33:36.018Z"
+    },
+    {
+      "id": "enr-s3-co4-aum",
+      "studentId": "s3",
+      "courseId": "co4",
+      "createdAt": "2026-06-23T07:33:36.020Z"
+    },
+    {
+      "id": "enr-s3-co5-7hd",
+      "studentId": "s3",
+      "courseId": "co5",
+      "createdAt": "2026-06-23T07:33:36.020Z"
+    },
+    {
+      "id": "enr-s3-co6-7bl",
+      "studentId": "s3",
+      "courseId": "co6",
+      "createdAt": "2026-06-23T07:33:36.020Z"
+    },
+    {
+      "id": "enr-s4-co4-pqm",
+      "studentId": "s4",
+      "courseId": "co4",
+      "createdAt": "2026-06-23T07:33:36.022Z"
+    },
+    {
+      "id": "enr-s4-co5-5wx",
+      "studentId": "s4",
+      "courseId": "co5",
+      "createdAt": "2026-06-23T07:33:36.022Z"
+    },
+    {
+      "id": "enr-s4-co6-0z6",
+      "studentId": "s4",
+      "courseId": "co6",
+      "createdAt": "2026-06-23T07:33:36.022Z"
+    },
+    {
+      "id": "enr-s6-co7-oyh",
+      "studentId": "s6",
+      "courseId": "co7",
+      "createdAt": "2026-06-23T07:33:36.024Z"
+    },
+    {
+      "id": "enr-s6-co8-nk5",
+      "studentId": "s6",
+      "courseId": "co8",
+      "createdAt": "2026-06-23T07:33:36.024Z"
+    },
+    {
+      "id": "enr-s6-co9-55l",
+      "studentId": "s6",
+      "courseId": "co9",
+      "createdAt": "2026-06-23T07:33:36.024Z"
+    },
+    {
+      "id": "enr-s7-co7-sbv",
+      "studentId": "s7",
+      "courseId": "co7",
+      "createdAt": "2026-06-23T07:33:36.026Z"
+    },
+    {
+      "id": "enr-s7-co8-9sx",
+      "studentId": "s7",
+      "courseId": "co8",
+      "createdAt": "2026-06-23T07:33:36.026Z"
+    },
+    {
+      "id": "enr-s7-co9-hhq",
+      "studentId": "s7",
+      "courseId": "co9",
+      "createdAt": "2026-06-23T07:33:36.026Z"
+    },
+    {
+      "id": "enr-s8-co7-daj",
+      "studentId": "s8",
+      "courseId": "co7",
+      "createdAt": "2026-06-23T07:33:36.027Z"
+    },
+    {
+      "id": "enr-s8-co8-c8o",
+      "studentId": "s8",
+      "courseId": "co8",
+      "createdAt": "2026-06-23T07:33:36.027Z"
+    },
+    {
+      "id": "enr-s8-co9-bpg",
+      "studentId": "s8",
+      "courseId": "co9",
+      "createdAt": "2026-06-23T07:33:36.027Z"
     }
   ]
 }

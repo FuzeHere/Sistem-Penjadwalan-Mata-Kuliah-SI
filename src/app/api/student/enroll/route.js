@@ -26,6 +26,18 @@ export async function GET(request) {
     // Filter enrollments for this student
     const studentEnrollments = data.courseEnrollments.filter(e => e.studentId === studentId);
     
+    // Filter courses that are active and match the student's semester or adjacent semester level
+    const studentClass = data.classes.find(c => c.id === student.classId);
+    const studentClassSemester = studentClass ? studentClass.semester : student.semester;
+
+    const availableCourses = data.courses.filter(c => {
+      if (!c.isActive) return false;
+      if (c.semester === studentClassSemester) return true;
+      if (studentClassSemester % 2 !== 0 && c.semester === studentClassSemester + 1) return true;
+      if (studentClassSemester % 2 === 0 && c.semester === studentClassSemester - 1) return true;
+      return false;
+    });
+
     // Send list of enrollments, student details, and all courses
     return NextResponse.json({
       success: true,
@@ -38,7 +50,7 @@ export async function GET(request) {
         classId: student.classId
       },
       enrollments: studentEnrollments,
-      courses: data.courses
+      courses: availableCourses
     });
   } catch (err) {
     console.error('Error fetching student enrollments:', err);

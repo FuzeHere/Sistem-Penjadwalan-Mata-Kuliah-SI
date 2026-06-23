@@ -21,6 +21,7 @@ export default function StudentDashboard() {
   const [isKrsSubmitted, setIsKrsSubmitted] = useState(false);
   const [savingKrs, setSavingKrs] = useState(false);
   const [krsMessage, setKrsMessage] = useState({ type: '', text: '' });
+  const [scheduleWeek, setScheduleWeek] = useState('current'); // 'current' or 'next'
 
   const fetchStudentData = async (studentId) => {
     try {
@@ -130,15 +131,24 @@ export default function StudentDashboard() {
 
   // Filter schedules to only show selected courses
   const getPersonalSchedules = () => {
-    return allSchedules.filter(s => selectedCourseIds.includes(s.courseId) && s.classId === studentDetails?.classId);
+    return allSchedules.filter(s => 
+      (selectedCourseIds.includes(s.courseId) && s.classId === studentDetails?.classId) ||
+      (s.assistantId === studentDetails?.id)
+    );
   };
 
   const personalSchedules = getPersonalSchedules();
 
   const handleExportPDF = () => {
+    const mappedSchedules = scheduleWeek === 'current' ? personalSchedules.map(s => ({
+      ...s,
+      timeSlot: s.tempTimeSlot || s.timeSlot,
+      room: s.tempRoom || s.room
+    })) : personalSchedules;
+
     exportScheduleToPDF({
-      schedules: personalSchedules,
-      title: 'KARTU RENCANA STUDI & JADWAL KULIAH MAHASISWA',
+      schedules: mappedSchedules,
+      title: `KARTU RENCANA STUDI & JADWAL KULIAH MAHASISWA - ${scheduleWeek === 'current' ? 'MINGGU INI (SEMENTARA)' : 'JADWAL TETAP'}`,
       subtitle: `Nama: ${studentDetails.name} | NIM: ${studentDetails.nim} | Batas SKS: ${studentDetails.maxSks} | Total SKS KRS: ${currentTotalSks} SKS`,
       fileName: `krs-jadwal-${studentDetails.nim}`
     });
@@ -180,7 +190,7 @@ export default function StudentDashboard() {
     );
   }
 
-  const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
+  const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
   return (
     <>
@@ -236,62 +246,131 @@ export default function StudentDashboard() {
               )}
 
               {personalSchedules.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '64px 20px', color: 'var(--text-muted)', border: '2px dashed var(--border-color)', borderRadius: 'var(--radius-md)' }}>
-                  <h4 style={{ margin: '0 0 8px' }}>Belum Ada Jadwal KRS</h4>
-                  <p style={{ fontSize: '0.85rem', margin: 0 }}>
-                    Anda tidak memiliki mata kuliah terdaftar untuk kelas Anda di semester ini. Hubungi Admin Jurusan jika terjadi kesalahan.
-                  </p>
+                <div style={{ padding: '24px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-secondary)' }}>
+                  <div style={{ textAlign: 'center', paddingBottom: '20px', borderBottom: '1px solid var(--border-color)' }}>
+                    <h4 style={{ margin: '0 0 8px', color: 'var(--primary)' }}>KRS Terkunci (Jadwal Belum Rilis)</h4>
+                    <p style={{ fontSize: '0.85rem', margin: 0, color: 'var(--text-muted)' }}>
+                      Pilihan mata kuliah Anda telah disimpan. Jadwal perkuliahan belum digenerate/dirilis oleh Admin Jurusan.
+                    </p>
+                  </div>
+                  <div style={{ marginTop: '20px' }}>
+                    <h5 style={{ fontSize: '0.9rem', marginBottom: '12px' }}>Daftar Mata Kuliah Terpilih:</h5>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {courses.filter(c => selectedCourseIds.includes(c.id)).map(course => (
+                        <div key={course.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: 'var(--bg-primary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+                          <div>
+                            <span style={{ fontSize: '0.85rem', fontWeight: '700' }}>{course.name}</span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Kode: {course.code}</span>
+                          </div>
+                          <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--primary)' }}>{course.credits} SKS</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', marginTop: '16px' }}>
-                  {days.map(day => {
-                    const daySchedules = personalSchedules.filter(s => s.timeSlot?.day === day);
-                    if (daySchedules.length === 0) return null;
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <button 
+                      className={`btn ${scheduleWeek === 'current' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ padding: '8px 16px', fontSize: '0.85rem' }}
+                      onClick={() => setScheduleWeek('current')}
+                    >
+                      Minggu Ini (Sementara)
+                    </button>
+                    <button 
+                      className={`btn ${scheduleWeek === 'next' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ padding: '8px 16px', fontSize: '0.85rem' }}
+                      onClick={() => setScheduleWeek('next')}
+                    >
+                      Minggu Depan / Tetap
+                    </button>
+                  </div>
 
-                    return (
-                      <div key={day} style={{ 
-                        backgroundColor: 'var(--bg-secondary)', 
-                        borderRadius: 'var(--radius-md)',
-                        border: '1px solid var(--border-color)',
-                        padding: '20px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '12px'
-                      }}>
-                        <h4 style={{ color: 'var(--primary)', margin: '0 0 8px', fontSize: '1.05rem', borderBottom: '2px solid var(--primary)', paddingBottom: '6px' }}>
-                          {day}
-                        </h4>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                          {daySchedules.map(sch => (
-                            <div 
-                              key={sch.id}
-                              style={{
-                                padding: '12px 16px',
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
+                    {days.map(day => {
+                      const daySchedules = personalSchedules.filter(s => {
+                        const slot = scheduleWeek === 'current' ? (s.tempTimeSlot || s.timeSlot) : s.timeSlot;
+                        return slot?.day === day;
+                      });
+                      return (
+                        <div key={day} style={{ 
+                          backgroundColor: 'var(--bg-secondary)', 
+                          borderRadius: 'var(--radius-md)',
+                          border: '1px solid var(--border-color)',
+                          padding: '20px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '12px'
+                        }}>
+                          <h4 style={{ color: 'var(--primary)', margin: '0 0 8px', fontSize: '1.05rem', borderBottom: '2px solid var(--primary)', paddingBottom: '6px' }}>
+                            {day}
+                          </h4>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flexGrow: 1 }}>
+                            {daySchedules.length === 0 ? (
+                              <div style={{ 
+                                textAlign: 'center', 
+                                padding: '24px 12px', 
+                                color: 'var(--text-muted)', 
+                                fontSize: '0.8rem', 
+                                fontStyle: 'italic', 
+                                border: '1px dashed var(--border-color)', 
                                 borderRadius: 'var(--radius-sm)',
-                                backgroundColor: 'var(--bg-primary)',
-                                borderLeft: `4px solid ${sch.course?.type === 'PRACTICAL' ? 'var(--accent)' : 'var(--primary)'}`,
-                                boxShadow: 'var(--shadow-sm)'
-                              }}
-                            >
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)' }}>
-                                  {sch.timeSlot?.startTime} - {sch.timeSlot?.endTime}
-                                </span>
-                                <span className="badge badge-secondary" style={{ fontSize: '0.7rem' }}>
-                                  Ruang {sch.room?.code}
-                                </span>
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                height: '100%',
+                                minHeight: '80px'
+                              }}>
+                                Tidak ada kuliah
                               </div>
-                              <span style={{ fontSize: '0.9rem', fontWeight: '800', display: 'block', marginBottom: '4px', color: 'var(--text-primary)' }}>{sch.course?.name}</span>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                <span>Dosen: {sch.lecturer?.name}</span>
-                                <span className="badge badge-primary" style={{ fontSize: '0.65rem' }}>{sch.course?.credits} SKS</span>
-                              </div>
-                            </div>
-                          ))}
+                            ) : (
+                              daySchedules.map(sch => {
+                                const slot = scheduleWeek === 'current' ? (sch.tempTimeSlot || sch.timeSlot) : sch.timeSlot;
+                                const room = scheduleWeek === 'current' ? (sch.tempRoom || sch.room) : sch.room;
+                                const isTemp = scheduleWeek === 'current' && (sch.tempTimeSlotId || sch.tempRoomId);
+
+                                return (
+                                  <div 
+                                    key={sch.id}
+                                    style={{
+                                      padding: '12px 16px',
+                                      borderRadius: 'var(--radius-sm)',
+                                      backgroundColor: 'var(--bg-primary)',
+                                      borderLeft: `4px solid ${sch.course?.type === 'PRACTICAL' ? 'var(--accent)' : 'var(--primary)'}`,
+                                      boxShadow: 'var(--shadow-sm)'
+                                    }}
+                                  >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                      <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)' }}>
+                                        {slot?.startTime} - {slot?.endTime}
+                                      </span>
+                                      <span className="badge badge-secondary" style={{ fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        Ruang {room?.code}
+                                        {isTemp && (
+                                          <span className="badge badge-warning" style={{ fontSize: '0.55rem', padding: '2px 4px' }}>Sementara</span>
+                                        )}
+                                      </span>
+                                    </div>
+                                    <span style={{ fontSize: '0.9rem', fontWeight: '800', display: 'block', marginBottom: '4px', color: 'var(--text-primary)' }}>{sch.course?.name}</span>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                      <span>Dosen: {sch.lecturer?.name}</span>
+                                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                        {sch.assistantId === studentDetails?.id && (
+                                          <span className="badge badge-accent" style={{ fontSize: '0.65rem', fontWeight: '700' }}>ASDOS</span>
+                                        )}
+                                        <span className="badge badge-primary" style={{ fontSize: '0.65rem' }}>{sch.course?.credits} SKS</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </section>

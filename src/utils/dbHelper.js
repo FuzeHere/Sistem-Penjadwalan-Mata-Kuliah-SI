@@ -55,6 +55,18 @@ export async function getDbData() {
       const timeSlots = await prisma.timeSlot.findMany();
       const lecturerPreferences = await prisma.lecturerPreference.findMany();
       const courseEnrollments = await prisma.courseEnrollment.findMany();
+      const semesters = await prisma.semester.findMany();
+      const courseLecturers = await prisma.courseLecturer.findMany({
+        include: { course: true, lecturer: true }
+      });
+      const swapRequests = await prisma.swapRequest.findMany({
+        include: {
+          requester: true,
+          requesterSchedule: { include: { course: true, class: true, timeSlot: true, room: true } },
+          target: true,
+          targetSchedule: { include: { course: true, class: true, timeSlot: true, room: true } }
+        }
+      });
       
       const schedulesRaw = await prisma.schedule.findMany({
         include: {
@@ -67,6 +79,9 @@ export async function getDbData() {
         }
       });
 
+      const roomMap = new Map(rooms.map(r => [r.id, r]));
+      const slotMap = new Map(timeSlots.map(t => [t.id, t]));
+
       // Format schedules like the mock DB
       const schedules = schedulesRaw.map(s => ({
         id: s.id,
@@ -76,6 +91,8 @@ export async function getDbData() {
         assistantId: s.assistantId,
         roomId: s.roomId,
         timeSlotId: s.timeSlotId,
+        tempRoomId: s.tempRoomId,
+        tempTimeSlotId: s.tempTimeSlotId,
         academicYear: s.academicYear,
         status: s.status,
         class: s.class,
@@ -83,7 +100,9 @@ export async function getDbData() {
         lecturer: s.lecturer,
         assistant: s.assistant,
         room: s.room,
-        timeSlot: s.timeSlot
+        timeSlot: s.timeSlot,
+        tempRoom: s.tempRoomId ? roomMap.get(s.tempRoomId) : null,
+        tempTimeSlot: s.tempTimeSlotId ? slotMap.get(s.tempTimeSlotId) : null
       }));
 
       const conflicts = await prisma.scheduleConflict.findMany();
@@ -99,6 +118,9 @@ export async function getDbData() {
         timeSlots,
         lecturerPreferences,
         courseEnrollments,
+        semesters,
+        courseLecturers,
+        swapRequests,
         schedules,
         conflicts,
         revisions,
@@ -127,12 +149,34 @@ export async function getDbData() {
     lecturer: lecturerMap.get(s.lecturerId),
     assistant: s.assistantId ? studentMap.get(s.assistantId) : null,
     room: roomMap.get(s.roomId),
-    timeSlot: slotMap.get(s.timeSlotId)
+    timeSlot: slotMap.get(s.timeSlotId),
+    tempRoom: s.tempRoomId ? roomMap.get(s.tempRoomId) : null,
+    tempTimeSlot: s.tempTimeSlotId ? slotMap.get(s.tempTimeSlotId) : null
+  }));
+
+  // Enrich courseLecturers with relations
+  const enrichedCourseLecturers = (db.courseLecturers || []).map(cl => ({
+    ...cl,
+    course: courseMap.get(cl.courseId),
+    lecturer: lecturerMap.get(cl.lecturerId)
+  }));
+
+  // Enrich swap requests with relations
+  const scheduleMap = new Map(enrichedSchedules.map(s => [s.id, s]));
+  const enrichedSwapRequests = (db.swapRequests || []).map(sr => ({
+    ...sr,
+    requester: lecturerMap.get(sr.requesterId),
+    requesterSchedule: scheduleMap.get(sr.requesterScheduleId),
+    target: lecturerMap.get(sr.targetId),
+    targetSchedule: scheduleMap.get(sr.targetScheduleId)
   }));
 
   return {
     ...db,
     schedules: enrichedSchedules,
+    courseLecturers: enrichedCourseLecturers,
+    swapRequests: enrichedSwapRequests,
+    semesters: db.semesters || [],
     courseEnrollments: db.courseEnrollments || [],
     isMock: true
   };
@@ -145,10 +189,11 @@ export async function saveSchedules(newSchedules, conflicts = []) {
   await initPrisma();
   if (usePrisma) {
     try {
-      // Clear existing draft schedules first
-      await prisma.schedule.deleteMany({
-        where: { status: 'DRAFT' }
-      });
+      // Clear ALL existing schedules and related tables to start completely fresh
+      await prisma.swapRequest.deleteMany({});
+      await prisma.revision.deleteMany({});
+      await prisma.scheduleConflict.deleteMany({});
+      await prisma.schedule.deleteMany({});
 
       // Save new schedules
       for (const s of newSchedules) {
@@ -160,6 +205,8 @@ export async function saveSchedules(newSchedules, conflicts = []) {
             assistantId: s.assistantId || null,
             roomId: s.roomId,
             timeSlotId: s.timeSlotId,
+            tempRoomId: null,
+            tempTimeSlotId: null,
             academicYear: s.academicYear,
             status: s.status || 'DRAFT'
           }
@@ -167,10 +214,6 @@ export async function saveSchedules(newSchedules, conflicts = []) {
       }
 
       // Save conflicts
-      await prisma.scheduleConflict.deleteMany({
-        where: { status: 'UNRESOLVED' }
-      });
-
       for (const c of conflicts) {
         // Find matching schedule id
         const sch = await prisma.schedule.findFirst({
@@ -200,8 +243,11 @@ export async function saveSchedules(newSchedules, conflicts = []) {
 
   // Fallback to Mock DB
   const db = readMockDb();
-  // Filter out draft schedules
-  db.schedules = db.schedules.filter(s => s.status !== 'DRAFT');
+  // Clear ALL existing schedules and related data
+  db.schedules = [];
+  db.swapRequests = [];
+  db.conflicts = [];
+  db.revisions = [];
   
   // Format schedules without relations for file storage
   const cleanSchedules = newSchedules.map(s => ({
@@ -212,11 +258,13 @@ export async function saveSchedules(newSchedules, conflicts = []) {
     assistantId: s.assistantId || null,
     roomId: s.roomId,
     timeSlotId: s.timeSlotId,
+    tempRoomId: null,
+    tempTimeSlotId: null,
     academicYear: s.academicYear,
     status: s.status || 'DRAFT'
   }));
 
-  db.schedules = [...db.schedules, ...cleanSchedules];
+  db.schedules = cleanSchedules;
   
   // Add conflicts
   db.conflicts = conflicts.map((c, i) => ({
@@ -330,9 +378,9 @@ export async function publishSchedules() {
 }
 
 /**
- * Adds or updates lecturer preference
+ * Adds or updates lecturer preference (day-based)
  */
-export async function saveLecturerPreference(lecturerId, preferences) {
+export async function saveLecturerPreference(lecturerId, preferredDays) {
   await initPrisma();
   if (usePrisma) {
     try {
@@ -341,12 +389,12 @@ export async function saveLecturerPreference(lecturerId, preferences) {
         where: { lecturerId }
       });
 
-      // Insert new preferences
-      for (const slotId of preferences) {
+      // Insert new day preferences
+      for (const day of preferredDays) {
         await prisma.lecturerPreference.create({
           data: {
             lecturerId,
-            timeSlotId: slotId
+            preferredDay: day
           }
         });
       }
@@ -360,12 +408,12 @@ export async function saveLecturerPreference(lecturerId, preferences) {
   // Filter out old preferences
   db.lecturerPreferences = db.lecturerPreferences.filter(p => p.lecturerId !== lecturerId);
   
-  // Add new
-  preferences.forEach((slotId, index) => {
+  // Add new day preferences
+  preferredDays.forEach((day, index) => {
     db.lecturerPreferences.push({
       id: `pref-${lecturerId}-${index}`,
       lecturerId,
-      timeSlotId: slotId,
+      preferredDay: day,
       notes: ''
     });
   });
@@ -418,7 +466,9 @@ export async function addMasterRecord(table, record) {
             name: record.name,
             credits: parseInt(record.credits),
             type: record.type,
-            needsLab: record.needsLab
+            needsLab: record.needsLab,
+            semester: parseInt(record.semester || 1),
+            isActive: record.isActive !== undefined ? !!record.isActive : true
           }
         });
       } else if (table === 'rooms') {
@@ -436,6 +486,21 @@ export async function addMasterRecord(table, record) {
             name: record.name,
             semester: parseInt(record.semester),
             capacity: parseInt(record.capacity)
+          }
+        });
+      } else if (table === 'semesters') {
+        created = await prisma.semester.create({
+          data: {
+            year: record.year,
+            type: record.type,
+            isActive: !!record.isActive
+          }
+        });
+      } else if (table === 'courseLecturers') {
+        created = await prisma.courseLecturer.create({
+          data: {
+            courseId: record.courseId,
+            lecturerId: record.lecturerId
           }
         });
       }
@@ -468,7 +533,10 @@ export async function addMasterRecord(table, record) {
   if (newRecord.capacity) newRecord.capacity = parseInt(newRecord.capacity);
   if (newRecord.floor) newRecord.floor = parseInt(newRecord.floor);
   if (newRecord.needsLab !== undefined) newRecord.needsLab = !!newRecord.needsLab;
+  if (newRecord.isActive !== undefined) newRecord.isActive = !!newRecord.isActive;
 
+  // Initialize array if missing
+  if (!db[table]) db[table] = [];
   db[table].push(newRecord);
   writeMockDb(db);
   return { success: true, created: newRecord };
@@ -540,4 +608,332 @@ export async function updateStudentMaxSks(studentId, maxSks) {
     return { success: true, student };
   }
   return { success: false, error: 'Student not found' };
+}
+
+/**
+ * Updates course semester and status (Admin setting)
+ */
+export async function updateCourse(courseId, semester, isActive) {
+  await initPrisma();
+  const parsedSemester = parseInt(semester);
+  const activeBool = !!isActive;
+  if (usePrisma) {
+    try {
+      const updated = await prisma.course.update({
+        where: { id: courseId },
+        data: {
+          semester: parsedSemester,
+          isActive: activeBool
+        }
+      });
+      return { success: true, updated };
+    } catch (err) {
+      console.warn('Prisma update course failed:', err.message);
+    }
+  }
+
+  const db = readMockDb();
+  const course = db.courses.find(c => c.id === courseId);
+  if (course) {
+    course.semester = parsedSemester;
+    course.isActive = activeBool;
+    writeMockDb(db);
+    return { success: true, course };
+  }
+  return { success: false, error: 'Course not found' };
+}
+
+
+/**
+ * Creates a swap request between two lecturers
+ */
+export async function createSwapRequest({ requesterId, requesterScheduleId, targetId, targetScheduleId, reason }) {
+  await initPrisma();
+  if (usePrisma) {
+    try {
+      const created = await prisma.swapRequest.create({
+        data: {
+          requesterId,
+          requesterScheduleId,
+          targetId,
+          targetScheduleId,
+          reason,
+          status: 'PENDING'
+        }
+      });
+      return { success: true, created };
+    } catch (err) {
+      console.warn('Prisma create swap request failed:', err.message);
+    }
+  }
+
+  const db = readMockDb();
+  if (!db.swapRequests) db.swapRequests = [];
+  const newReq = {
+    id: `swap-${Math.random().toString(36).substring(2, 9)}`,
+    requesterId,
+    requesterScheduleId,
+    targetId,
+    targetScheduleId,
+    reason,
+    status: 'PENDING',
+    adminNote: null,
+    createdAt: new Date().toISOString()
+  };
+  db.swapRequests.push(newReq);
+  writeMockDb(db);
+  return { success: true, created: newReq };
+}
+
+/**
+ * Updates swap request status (Admin approve/reject)
+ */
+export async function updateSwapRequest(swapId, status, adminNote) {
+  await initPrisma();
+  if (usePrisma) {
+    try {
+      const updated = await prisma.swapRequest.update({
+        where: { id: swapId },
+        data: { status, adminNote }
+      });
+
+      // If approved, execute the swap temporarily
+      if (status === 'APPROVED') {
+        const swap = await prisma.swapRequest.findUnique({
+          where: { id: swapId },
+          include: { requesterSchedule: true, targetSchedule: true }
+        });
+        if (swap) {
+          const reqActiveSlot = swap.requesterSchedule.tempTimeSlotId || swap.requesterSchedule.timeSlotId;
+          const reqActiveRoom = swap.requesterSchedule.tempRoomId || swap.requesterSchedule.roomId;
+          const tgtActiveSlot = swap.targetSchedule.tempTimeSlotId || swap.targetSchedule.timeSlotId;
+          const tgtActiveRoom = swap.targetSchedule.tempRoomId || swap.targetSchedule.roomId;
+
+          await prisma.schedule.update({
+            where: { id: swap.requesterScheduleId },
+            data: {
+              tempTimeSlotId: tgtActiveSlot,
+              tempRoomId: tgtActiveRoom
+            }
+          });
+          await prisma.schedule.update({
+            where: { id: swap.targetScheduleId },
+            data: {
+              tempTimeSlotId: reqActiveSlot,
+              tempRoomId: reqActiveRoom
+            }
+          });
+        }
+      }
+
+      return { success: true, updated };
+    } catch (err) {
+      console.warn('Prisma update swap request failed:', err.message);
+    }
+  }
+
+  const db = readMockDb();
+  if (!db.swapRequests) db.swapRequests = [];
+  const swapIndex = db.swapRequests.findIndex(s => s.id === swapId);
+  if (swapIndex === -1) return { success: false, error: 'Swap request not found' };
+
+  db.swapRequests[swapIndex].status = status;
+  db.swapRequests[swapIndex].adminNote = adminNote || null;
+
+  // If approved, execute the swap temporarily in mock DB
+  if (status === 'APPROVED') {
+    const swap = db.swapRequests[swapIndex];
+    const reqScheduleIdx = db.schedules.findIndex(s => s.id === swap.requesterScheduleId);
+    const tgtScheduleIdx = db.schedules.findIndex(s => s.id === swap.targetScheduleId);
+
+    if (reqScheduleIdx !== -1 && tgtScheduleIdx !== -1) {
+      const s1 = db.schedules[reqScheduleIdx];
+      const s2 = db.schedules[tgtScheduleIdx];
+      const reqActiveSlot = s1.tempTimeSlotId || s1.timeSlotId;
+      const reqActiveRoom = s1.tempRoomId || s1.roomId;
+      const tgtActiveSlot = s2.tempTimeSlotId || s2.timeSlotId;
+      const tgtActiveRoom = s2.tempRoomId || s2.roomId;
+
+      s1.tempTimeSlotId = tgtActiveSlot;
+      s1.tempRoomId = tgtActiveRoom;
+      s2.tempTimeSlotId = reqActiveSlot;
+      s2.tempRoomId = reqActiveRoom;
+    }
+  }
+
+  writeMockDb(db);
+  return { success: true };
+}
+
+// Helpers for schedule collision checking in rescheduling
+function getDurationMinutes(startTime, endTime) {
+  const [startH, startM] = startTime.split(':').map(Number);
+  const [endH, endM] = endTime.split(':').map(Number);
+  return (endH * 60 + endM) - (startH * 60 + startM);
+}
+
+function isTimeOverlap(slotA, slotB) {
+  if (!slotA || !slotB) return false;
+  if (slotA.day !== slotB.day) return false;
+  
+  const startA = slotA.startTime.split(':').map(Number);
+  const endA = slotA.endTime.split(':').map(Number);
+  const startB = slotB.startTime.split(':').map(Number);
+  const endB = slotB.endTime.split(':').map(Number);
+
+  const startAMins = startA[0] * 60 + startA[1];
+  const endAMins = endA[0] * 60 + endA[1];
+  const startBMins = startB[0] * 60 + startB[1];
+  const endBMins = endB[0] * 60 + endB[1];
+
+  return startAMins < endBMins && startBMins < endAMins;
+}
+
+/**
+ * Gets all time slots that are free for a class and lecturer in a schedule
+ */
+export async function getAvailableTimeSlotsForSchedule(scheduleId) {
+  await initPrisma();
+  const data = await getDbData();
+  const sch = data.schedules.find(s => s.id === scheduleId);
+  if (!sch) {
+    return { success: false, error: 'Jadwal tidak ditemukan.' };
+  }
+
+  const course = data.courses.find(c => c.id === sch.courseId);
+  const cls = data.classes.find(c => c.id === sch.classId);
+  const lecturer = data.lecturers.find(l => l.id === sch.lecturerId);
+  if (!course || !cls || !lecturer) {
+    return { success: false, error: 'Data pendukung tidak ditemukan.' };
+  }
+
+  const courseDuration = course.credits * 40;
+  const availableSlots = [];
+
+  for (const slot of data.timeSlots) {
+    // Skip current active slot of this schedule
+    const activeSlotId = sch.tempTimeSlotId || sch.timeSlotId;
+    if (slot.id === activeSlotId) continue;
+
+    // Check duration
+    const slotDuration = getDurationMinutes(slot.startTime, slot.endTime);
+    if (slotDuration < courseDuration) continue;
+
+    // Check class conflict
+    const classConflict = data.schedules.some(s => 
+      s.id !== scheduleId && 
+      s.classId === sch.classId && 
+      isTimeOverlap(slot, data.timeSlots.find(ts => ts.id === (s.tempTimeSlotId || s.timeSlotId)))
+    );
+    if (classConflict) continue;
+
+    // Check lecturer conflict
+    const lecturerConflict = data.schedules.some(s => 
+      s.id !== scheduleId && 
+      s.lecturerId === sch.lecturerId && 
+      isTimeOverlap(slot, data.timeSlots.find(ts => ts.id === (s.tempTimeSlotId || s.timeSlotId)))
+    );
+    if (lecturerConflict) continue;
+
+    // Check assistant conflict (if applicable)
+    let assistantConflict = false;
+    if (sch.assistantId) {
+      assistantConflict = data.schedules.some(s => 
+        s.id !== scheduleId && 
+        (s.assistantId === sch.assistantId || s.lecturerId === sch.assistantId) && 
+        isTimeOverlap(slot, data.timeSlots.find(ts => ts.id === (s.tempTimeSlotId || s.timeSlotId)))
+      );
+    }
+    if (assistantConflict) continue;
+
+    // Find available rooms
+    const availableRooms = data.rooms.filter(room => {
+      if (room.capacity < cls.capacity) return false;
+      const isLabCourse = course.type === 'PRACTICAL' || course.needsLab;
+      if (isLabCourse && room.type !== 'LAB') return false;
+
+      // Check if room is occupied
+      const roomOccupied = data.schedules.some(s => 
+        s.id !== scheduleId && 
+        (s.tempRoomId || s.roomId) === room.id && 
+        isTimeOverlap(slot, data.timeSlots.find(ts => ts.id === (s.tempTimeSlotId || s.timeSlotId)))
+      );
+      return !roomOccupied;
+    });
+
+    if (availableRooms.length > 0) {
+      availableSlots.push({
+        timeSlotId: slot.id,
+        day: slot.day,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        roomId: availableRooms[0].id,
+        roomCode: availableRooms[0].code
+      });
+    }
+  }
+
+  return { success: true, slots: availableSlots };
+}
+
+/**
+ * Directly reschedules a schedule to a target empty slot and room (temporary for this week)
+ */
+export async function rescheduleToEmptySlot(scheduleId, timeSlotId, roomId) {
+  await initPrisma();
+  if (usePrisma) {
+    try {
+      const updated = await prisma.schedule.update({
+        where: { id: scheduleId },
+        data: {
+          tempTimeSlotId: timeSlotId,
+          tempRoomId: roomId
+        }
+      });
+      return { success: true, updated };
+    } catch (err) {
+      console.warn('Prisma reschedule failed:', err.message);
+    }
+  }
+
+  const db = readMockDb();
+  const scheduleIndex = db.schedules.findIndex(s => s.id === scheduleId);
+  if (scheduleIndex === -1) return { success: false, error: 'Jadwal tidak ditemukan' };
+
+  db.schedules[scheduleIndex].tempTimeSlotId = timeSlotId;
+  db.schedules[scheduleIndex].tempRoomId = roomId;
+
+  writeMockDb(db);
+  return { success: true };
+}
+
+/**
+ * Updates a student's master data (semester and classId)
+ */
+export async function updateStudentMaster(studentId, semester, classId) {
+  await initPrisma();
+  if (usePrisma) {
+    try {
+      const updated = await prisma.student.update({
+        where: { id: studentId },
+        data: {
+          semester: parseInt(semester),
+          classId: classId
+        }
+      });
+      return { success: true, student: updated };
+    } catch (err) {
+      console.warn('Prisma updateStudentMaster failed:', err.message);
+    }
+  }
+
+  const db = readMockDb();
+  const idx = db.students.findIndex(s => s.id === studentId);
+  if (idx === -1) return { success: false, error: 'Mahasiswa tidak ditemukan' };
+
+  db.students[idx].semester = parseInt(semester);
+  db.students[idx].classId = classId;
+
+  writeMockDb(db);
+  return { success: true, student: db.students[idx] };
 }

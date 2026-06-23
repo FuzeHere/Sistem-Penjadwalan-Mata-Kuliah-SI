@@ -26,7 +26,7 @@ export async function POST(request) {
       );
     }
 
-    const validTables = ['lecturers', 'students', 'courses', 'rooms', 'classes'];
+    const validTables = ['lecturers', 'students', 'courses', 'rooms', 'classes', 'semesters', 'courseLecturers'];
     if (!validTables.includes(table)) {
       return NextResponse.json(
         { error: `Nama tabel "${table}" tidak valid.` },
