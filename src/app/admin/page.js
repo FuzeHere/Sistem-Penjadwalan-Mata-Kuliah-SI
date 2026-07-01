@@ -863,7 +863,7 @@ export default function AdminDashboard() {
                         {masterTab === 'students' && <><th>NIM</th><th>Nama</th><th>Smt</th><th>Kelas</th><th>Status KRS</th><th>Aksi</th></>}
                         {masterTab === 'courses' && <><th>Kode</th><th>Nama MK</th><th>SKS</th><th>Tipe</th><th>Smt</th><th>Status</th><th>Aksi</th></>}
                         {masterTab === 'rooms' && <><th>Kode</th><th>Lantai</th><th>Kapasitas</th><th>Tipe</th></>}
-                        {masterTab === 'classes' && <><th>Nama Kelas</th><th>Smt</th><th>Kapasitas</th></>}
+                        {masterTab === 'classes' && <><th>Nama Kelas</th><th>Smt</th><th>Kapasitas</th><th>Aksi</th></>}
                         {masterTab === 'semesters' && <><th>Tahun</th><th>Tipe</th><th>Status</th><th>Aksi</th></>}
                         {masterTab === 'courseLecturers' && <><th>Mata Kuliah</th><th>Dosen Pengampu</th></>}
                       </tr>
@@ -882,7 +882,7 @@ export default function AdminDashboard() {
                         <tr key={item.id}><td>{item.code}</td><td>{item.floor}</td><td>{item.capacity} mhs</td><td>{item.type}</td></tr>
                       ))}
                       {masterTab === 'classes' && data.classes.map(item => (
-                        <tr key={item.id}><td>{item.name}</td><td>{item.semester}</td><td>{item.capacity} mhs</td></tr>
+                        <ClassRow key={item.id} item={item} onSave={fetchData} />
                       ))}
                       {masterTab === 'semesters' && (data.semesters || []).map(item => (
                         <tr key={item.id}>
@@ -1311,6 +1311,50 @@ function StudentRow({ student, classes, hasEnrolled, onSave }) {
             </button>
           )}
         </div>
+      </td>
+    </tr>
+  );
+}
+
+function ClassRow({ item, onSave }) {
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!confirm(`Apakah Anda yakin ingin menghapus kelas ${item.name}? Semua data mahasiswa, KRS, dan jadwal yang terkait dengan kelas ini juga akan terhapus.`)) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/data?table=classes&id=${item.id}`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Gagal menghapus kelas');
+      }
+      alert(`Kelas ${item.name} berhasil dihapus!`);
+      if (onSave) onSave();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <tr>
+      <td><strong>{item.name}</strong></td>
+      <td>{item.semester}</td>
+      <td>{item.capacity} mhs</td>
+      <td>
+        <button 
+          onClick={handleDelete} 
+          className="btn btn-secondary" 
+          style={{ padding: '6px 14px', fontSize: '0.8rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)' }}
+          disabled={deleting}
+        >
+          {deleting ? 'Menghapus...' : 'Hapus'}
+        </button>
       </td>
     </tr>
   );

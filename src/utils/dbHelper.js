@@ -1049,6 +1049,14 @@ export async function deleteMasterRecord(table, id) {
   const index = db[table].findIndex(item => item.id === id);
   if (index === -1) return { success: false, error: 'Record tidak ditemukan.' };
 
+  // Cascade delete for classes in Mock DB
+  if (table === 'classes') {
+    const studentIds = (db.students || []).filter(s => s.classId === id).map(s => s.id);
+    db.students = (db.students || []).filter(s => s.classId !== id);
+    db.schedules = (db.schedules || []).filter(sch => sch.classId !== id);
+    db.courseEnrollments = (db.courseEnrollments || []).filter(e => !studentIds.includes(e.studentId));
+  }
+
   const deleted = db[table].splice(index, 1)[0];
   writeMockDb(db);
   return { success: true, deleted };

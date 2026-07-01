@@ -68,6 +68,12 @@
       "year": "2024/2025",
       "type": "GANJIL",
       "isActive": false
+    },
+    {
+      "id": "se-bkjsif5",
+      "year": "2026/2027",
+      "type": "GENAP",
+      "isActive": false
     }
   ],
   "lecturers": [
@@ -421,7 +427,7 @@
       "type": "PRACTICAL",
       "needsLab": true,
       "semester": 2,
-      "isActive": true
+      "isActive": false
     },
     {
       "id": "co-brtpgp0",
@@ -972,6 +978,30 @@
       "studentId": "s8",
       "courseId": "co9",
       "createdAt": "2026-06-23T07:33:36.027Z"
+    },
+    {
+      "id": "enr-s1-co1-y70",
+      "studentId": "s1",
+      "courseId": "co1",
+      "createdAt": "2026-07-01T03:37:36.193Z"
+    },
+    {
+      "id": "enr-s1-co2-hqs",
+      "studentId": "s1",
+      "courseId": "co2",
+      "createdAt": "2026-07-01T03:37:36.193Z"
+    },
+    {
+      "id": "enr-s1-co3-nmu",
+      "studentId": "s1",
+      "courseId": "co3",
+      "createdAt": "2026-07-01T03:37:36.193Z"
+    },
+    {
+      "id": "enr-s1-co-brtpgp0-1lq",
+      "studentId": "s1",
+      "courseId": "co-brtpgp0",
+      "createdAt": "2026-07-01T03:37:36.193Z"
     }
   ]
 }
