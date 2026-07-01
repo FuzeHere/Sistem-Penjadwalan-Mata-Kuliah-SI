@@ -421,7 +421,7 @@
       "type": "PRACTICAL",
       "needsLab": true,
       "semester": 2,
-      "isActive": false
+      "isActive": true
     },
     {
       "id": "co-brtpgp0",

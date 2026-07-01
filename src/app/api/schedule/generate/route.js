@@ -154,7 +154,8 @@ export async function POST(request) {
       rooms,
       timeSlots,
       lecturerPreferences,
-      students
+      students,
+      courseEnrollments
     });
 
     // 4. Save schedules and conflicts

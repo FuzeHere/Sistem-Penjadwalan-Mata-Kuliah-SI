@@ -489,6 +489,14 @@ export async function addMasterRecord(table, record) {
           }
         });
       } else if (table === 'semesters') {
+        if (record.isActive) {
+          const activeSemester = await prisma.semester.findFirst({
+            where: { isActive: true }
+          });
+          if (activeSemester) {
+            return { success: false, error: 'Hanya boleh ada 1 semester yang aktif. Nonaktifkan semester lain terlebih dahulu.' };
+          }
+        }
         created = await prisma.semester.create({
           data: {
             year: record.year,
@@ -497,6 +505,12 @@ export async function addMasterRecord(table, record) {
           }
         });
       } else if (table === 'courseLecturers') {
+        const course = await prisma.course.findUnique({
+          where: { id: record.courseId }
+        });
+        if (!course || !course.isActive) {
+          return { success: false, error: 'Mata kuliah tidak aktif atau tidak ditemukan, sehingga tidak bisa ditugaskan.' };
+        }
         created = await prisma.courseLecturer.create({
           data: {
             courseId: record.courseId,
@@ -511,6 +525,23 @@ export async function addMasterRecord(table, record) {
   }
 
   const db = readMockDb();
+
+  if (table === 'semesters') {
+    if (record.isActive) {
+      const activeSemester = db.semesters?.find(s => s.isActive);
+      if (activeSemester) {
+        return { success: false, error: 'Hanya boleh ada 1 semester yang aktif. Nonaktifkan semester lain terlebih dahulu.' };
+      }
+    }
+  }
+
+  if (table === 'courseLecturers') {
+    const course = db.courses?.find(c => c.id === record.courseId);
+    if (!course || !course.isActive) {
+      return { success: false, error: 'Mata kuliah tidak aktif atau tidak ditemukan, sehingga tidak bisa ditugaskan.' };
+    }
+  }
+
   const id = `${table.substring(0, 2)}-${Math.random().toString(36).substring(2, 9)}`;
   const newRecord = { id, ...record };
   
@@ -846,6 +877,31 @@ export async function getAvailableTimeSlotsForSchedule(scheduleId) {
     }
     if (assistantConflict) continue;
 
+    // Check assistant busy studying conflict
+    let assistantBusyStudying = false;
+    if (sch.assistantId) {
+      const assistant = data.students.find(std => std.id === sch.assistantId);
+      if (assistant) {
+        const assistantEnrollments = (data.courseEnrollments || [])
+          .filter(e => e.studentId === assistant.id)
+          .map(e => e.courseId);
+        
+        assistantBusyStudying = data.schedules.some(s => {
+          if (s.id === scheduleId) return false;
+          const sSlot = data.timeSlots.find(ts => ts.id === (s.tempTimeSlotId || s.timeSlotId));
+          if (!isTimeOverlap(slot, sSlot)) return false;
+          
+          const isClassSchedule = s.classId === assistant.classId;
+          const hasEnrollments = assistantEnrollments.length > 0;
+          
+          return hasEnrollments 
+            ? (isClassSchedule && assistantEnrollments.includes(s.courseId))
+            : isClassSchedule;
+        });
+      }
+    }
+    if (assistantBusyStudying) continue;
+
     // Find available rooms
     const availableRooms = data.rooms.filter(room => {
       if (room.capacity < cls.capacity) return false;
@@ -936,4 +992,115 @@ export async function updateStudentMaster(studentId, semester, classId) {
 
   writeMockDb(db);
   return { success: true, student: db.students[idx] };
+}
+
+/**
+ * Deletes a record from a master table
+ */
+export async function deleteMasterRecord(table, id) {
+  await initPrisma();
+  if (usePrisma) {
+    try {
+      if (table === 'courses') {
+        const deleted = await prisma.course.delete({
+          where: { id }
+        });
+        return { success: true, deleted };
+      } else if (table === 'semesters') {
+        const deleted = await prisma.semester.delete({
+          where: { id }
+        });
+        return { success: true, deleted };
+      } else if (table === 'courseLecturers') {
+        const deleted = await prisma.courseLecturer.delete({
+          where: { id }
+        });
+        return { success: true, deleted };
+      } else if (table === 'lecturers') {
+        const deleted = await prisma.lecturer.delete({
+          where: { id }
+        });
+        return { success: true, deleted };
+      } else if (table === 'students') {
+        const deleted = await prisma.student.delete({
+          where: { id }
+        });
+        return { success: true, deleted };
+      } else if (table === 'rooms') {
+        const deleted = await prisma.room.delete({
+          where: { id }
+        });
+        return { success: true, deleted };
+      } else if (table === 'classes') {
+        const deleted = await prisma.class.delete({
+          where: { id }
+        });
+        return { success: true, deleted };
+      }
+    } catch (err) {
+      console.warn('Prisma delete master record failed:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  const db = readMockDb();
+  if (!db[table]) return { success: false, error: `Table "${table}" tidak ditemukan.` };
+
+  const index = db[table].findIndex(item => item.id === id);
+  if (index === -1) return { success: false, error: 'Record tidak ditemukan.' };
+
+  const deleted = db[table].splice(index, 1)[0];
+  writeMockDb(db);
+  return { success: true, deleted };
+}
+
+/**
+ * Updates a semester's isActive status
+ */
+export async function updateSemester(semesterId, isActive) {
+  await initPrisma();
+  const activeBool = !!isActive;
+
+  if (activeBool) {
+    if (usePrisma) {
+      try {
+        const activeSemester = await prisma.semester.findFirst({
+          where: { isActive: true, id: { not: semesterId } }
+        });
+        if (activeSemester) {
+          return { success: false, error: 'Hanya boleh ada 1 semester yang aktif. Nonaktifkan semester lain terlebih dahulu.' };
+        }
+      } catch (err) {
+        console.warn('Prisma active check failed:', err.message);
+      }
+    } else {
+      const db = readMockDb();
+      const activeSemester = db.semesters?.find(s => s.isActive && s.id !== semesterId);
+      if (activeSemester) {
+        return { success: false, error: 'Hanya boleh ada 1 semester yang aktif. Nonaktifkan semester lain terlebih dahulu.' };
+      }
+    }
+  }
+
+  if (usePrisma) {
+    try {
+      const updated = await prisma.semester.update({
+        where: { id: semesterId },
+        data: { isActive: activeBool }
+      });
+      return { success: true, updated };
+    } catch (err) {
+      console.warn('Prisma update semester failed:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  const db = readMockDb();
+  const semester = db.semesters.find(s => s.id === semesterId);
+  if (semester) {
+    semester.isActive = activeBool;
+    writeMockDb(db);
+    return { success: true, semester };
+  }
+  return { success: false, error: 'Semester tidak ditemukan.' };
 }

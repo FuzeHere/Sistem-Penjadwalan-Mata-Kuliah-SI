@@ -20,6 +20,8 @@ export default function AdminDashboard() {
   const [genResult, setGenResult] = useState(null);
   const [genSemesterType, setGenSemesterType] = useState('GANJIL');
   const [scheduleWeek, setScheduleWeek] = useState('current'); // 'current' or 'next'
+  const [viewGroupBy, setViewGroupBy] = useState('class'); // 'class' or 'lecturer'
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Master Data Add State
   const [masterTab, setMasterTab] = useState('lecturers');
@@ -196,6 +198,39 @@ export default function AdminDashboard() {
     });
   };
 
+  const handleExportPDFByLecturer = (lecturerId, lecturerName) => {
+    const schedules = data.schedules.filter(s => s.lecturerId === lecturerId);
+    const mappedSchedules = scheduleWeek === 'current' ? schedules.map(s => ({
+      ...s,
+      timeSlot: s.tempTimeSlot || s.timeSlot,
+      room: s.tempRoom || s.room
+    })) : schedules;
+
+    exportScheduleToPDF({
+      schedules: mappedSchedules,
+      title: `JADWAL MENGAJAR DOSEN - ${scheduleWeek === 'current' ? 'MINGGU INI (SEMENTARA)' : 'JADWAL TETAP'}`,
+      subtitle: `Dosen: ${lecturerName} | Tahun Akademik: 2025/2026`,
+      fileName: `jadwal-dosen-${lecturerName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`
+    });
+  };
+
+  const handleActivateSemester = async (semesterId, targetStatus) => {
+    try {
+      const res = await fetch('/api/semester/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ semesterId, isActive: targetStatus })
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Gagal mengubah status semester.');
+      
+      alert('Status semester berhasil diperbarui.');
+      await fetchData();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyItems: 'center', minHeight: '100vh', backgroundColor: 'var(--bg-primary)' }}>
@@ -302,116 +337,256 @@ export default function AdminDashboard() {
         {activeTab === 'overview' && (
           <section className="glass-panel animate-fade" style={{ padding: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
-              <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Hasil Jadwal per Kelas (Telah Diterbitkan: {publishedSchedules.length})</h2>
+              <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Hasil Jadwal (Telah Diterbitkan: {publishedSchedules.length})</h2>
               
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button 
-                  className={`btn ${scheduleWeek === 'current' ? 'btn-primary' : 'btn-secondary'}`}
-                  style={{ padding: '6px 14px', fontSize: '0.8rem' }}
-                  onClick={() => setScheduleWeek('current')}
-                >
-                  Minggu Ini (Sementara)
-                </button>
-                <button 
-                  className={`btn ${scheduleWeek === 'next' ? 'btn-primary' : 'btn-secondary'}`}
-                  style={{ padding: '6px 14px', fontSize: '0.8rem' }}
-                  onClick={() => setScheduleWeek('next')}
-                >
-                  Minggu Depan (Tetap)
-                </button>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginRight: '12px' }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Tampilkan Berdasarkan:</span>
+                  <select 
+                    className="form-control form-select" 
+                    value={viewGroupBy} 
+                    onChange={e => { setViewGroupBy(e.target.value); setSearchQuery(''); }}
+                    style={{ padding: '6px 12px', fontSize: '0.8rem', width: '120px', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+                  >
+                    <option value="class">Kelas</option>
+                    <option value="lecturer">Dosen</option>
+                  </select>
+                </div>
+
+                {viewGroupBy === 'lecturer' && (
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginRight: '12px' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Cari Dosen:</span>
+                    <input 
+                      type="text" 
+                      placeholder="Nama atau NIDN..."
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      style={{ padding: '6px 12px', fontSize: '0.8rem', width: '180px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+                    />
+                  </div>
+                )}
+
+                {viewGroupBy === 'class' && (
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginRight: '12px' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Cari Kelas:</span>
+                    <input 
+                      type="text" 
+                      placeholder="Nama Kelas..."
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      style={{ padding: '6px 12px', fontSize: '0.8rem', width: '120px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+                    />
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                    className={`btn ${scheduleWeek === 'current' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ padding: '6px 14px', fontSize: '0.8rem' }}
+                    onClick={() => setScheduleWeek('current')}
+                  >
+                    Minggu Ini (Sementara)
+                  </button>
+                  <button 
+                    className={`btn ${scheduleWeek === 'next' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ padding: '6px 14px', fontSize: '0.8rem' }}
+                    onClick={() => setScheduleWeek('next')}
+                  >
+                    Minggu Depan (Tetap)
+                  </button>
+                </div>
               </div>
             </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              {data.classes.map(cls => {
-                const clsSchedules = data.schedules.filter(s => s.classId === cls.id);
-                return (
-                  <div key={cls.id} style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '24px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                      <h3 style={{ fontSize: '1.1rem', color: 'var(--primary)', margin: 0 }}>Kelas {cls.name} (Semester {cls.semester})</h3>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button 
-                          onClick={() => handleExportPDFAll(cls.id, cls.name)}
-                          className="btn btn-secondary"
-                          style={{ padding: '6px 12px', fontSize: '0.8rem' }}
-                          disabled={clsSchedules.length === 0}
-                        >
-                          PDF
-                        </button>
-                      </div>
-                    </div>
+              {viewGroupBy === 'class' ? (
+                data.classes
+                  .filter(cls => cls.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .map(cls => {
+                    const clsSchedules = data.schedules.filter(s => s.classId === cls.id);
+                    return (
+                      <div key={cls.id} style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '24px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                          <h3 style={{ fontSize: '1.1rem', color: 'var(--primary)', margin: 0 }}>Kelas {cls.name} (Semester {cls.semester})</h3>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button 
+                              onClick={() => handleExportPDFAll(cls.id, cls.name)}
+                              className="btn btn-secondary"
+                              style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                              disabled={clsSchedules.length === 0}
+                            >
+                              PDF
+                            </button>
+                          </div>
+                        </div>
 
-                    {clsSchedules.length === 0 ? (
-                      <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Belum ada jadwal yang disusun untuk kelas ini.</p>
-                    ) : (
-                      <div className="table-responsive">
-                        <table className="table">
-                          <thead>
-                            <tr>
-                              <th>Hari & Jam</th>
-                              <th>Mata Kuliah</th>
-                              <th>SKS</th>
-                              <th>Dosen</th>
-                              <th>Asisten Dosen</th>
-                              <th>Ruangan</th>
-                              <th>Status</th>
-                              <th>Aksi</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {clsSchedules.map(s => {
-                              const slot = scheduleWeek === 'current' ? (s.tempTimeSlot || s.timeSlot) : s.timeSlot;
-                              const room = scheduleWeek === 'current' ? (s.tempRoom || s.room) : s.room;
-                              const isTemp = scheduleWeek === 'current' && (s.tempTimeSlotId || s.tempRoomId);
-
-                              return (
-                                <tr key={s.id} style={{ backgroundColor: s.status === 'DRAFT' ? 'rgba(217, 119, 6, 0.05)' : 'transparent' }}>
-                                  <td>
-                                    <strong>{slot?.day}</strong>
-                                    {isTemp && (
-                                      <span className="badge badge-warning" style={{ fontSize: '0.6rem', display: 'block', marginTop: '4px' }}>Sementara</span>
-                                    )}
-                                    <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{slot?.startTime} - {slot?.endTime}</span>
-                                  </td>
-                                  <td>
-                                    <strong>{s.course?.name}</strong>
-                                    <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{s.course?.code}</span>
-                                  </td>
-                                  <td><span className="badge badge-primary">{s.course?.credits} SKS</span></td>
-                                  <td>{s.lecturer?.name}</td>
-                                  <td>
-                                    {s.assistant ? (
-                                      <span className="badge badge-accent">{s.assistant.name}</span>
-                                    ) : (
-                                      <span style={{ color: 'var(--text-muted)' }}>-</span>
-                                    )}
-                                  </td>
-                                  <td><span style={{ color: 'var(--primary)', fontWeight: '600' }}>{room?.code}</span></td>
-                                  <td>
-                                    <span className={`badge ${s.status === 'PUBLISHED' ? 'badge-primary' : 'badge-warning'}`}>
-                                      {s.status}
-                                    </span>
-                                  </td>
-                                  <td>
-                                    <button 
-                                      onClick={() => openRevisionModal(s)}
-                                      className="btn btn-secondary" 
-                                      style={{ padding: '4px 10px', fontSize: '0.75rem' }}
-                                      disabled={scheduleWeek !== 'current'}
-                                    >
-                                      Revisi
-                                    </button>
-                                  </td>
+                        {clsSchedules.length === 0 ? (
+                          <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Belum ada jadwal yang disusun untuk kelas ini.</p>
+                        ) : (
+                          <div className="table-responsive">
+                            <table className="table">
+                              <thead>
+                                <tr>
+                                  <th>Hari & Jam</th>
+                                  <th>Mata Kuliah</th>
+                                  <th>SKS</th>
+                                  <th>Dosen</th>
+                                  <th>Asisten Dosen</th>
+                                  <th>Ruangan</th>
+                                  <th>Status</th>
+                                  <th>Aksi</th>
                                 </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                              </thead>
+                              <tbody>
+                                {clsSchedules.map(s => {
+                                  const slot = scheduleWeek === 'current' ? (s.tempTimeSlot || s.timeSlot) : s.timeSlot;
+                                  const room = scheduleWeek === 'current' ? (s.tempRoom || s.room) : s.room;
+                                  const isTemp = scheduleWeek === 'current' && (s.tempTimeSlotId || s.tempRoomId);
+
+                                  return (
+                                    <tr key={s.id} style={{ backgroundColor: s.status === 'DRAFT' ? 'rgba(217, 119, 6, 0.05)' : 'transparent' }}>
+                                      <td>
+                                        <strong>{slot?.day}</strong>
+                                        {isTemp && (
+                                          <span className="badge badge-warning" style={{ fontSize: '0.6rem', display: 'block', marginTop: '4px' }}>Sementara</span>
+                                        )}
+                                        <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{slot?.startTime} - {slot?.endTime}</span>
+                                      </td>
+                                      <td>
+                                        <strong>{s.course?.name}</strong>
+                                        <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{s.course?.code}</span>
+                                      </td>
+                                      <td><span className="badge badge-primary">{s.course?.credits} SKS</span></td>
+                                      <td>{s.lecturer?.name}</td>
+                                      <td>
+                                        {s.assistant ? (
+                                          <span className="badge badge-accent">{s.assistant.name}</span>
+                                        ) : (
+                                          <span style={{ color: 'var(--text-muted)' }}>-</span>
+                                        )}
+                                      </td>
+                                      <td><span style={{ color: 'var(--primary)', fontWeight: '600' }}>{room?.code}</span></td>
+                                      <td>
+                                        <span className={`badge ${s.status === 'PUBLISHED' ? 'badge-primary' : 'badge-warning'}`}>
+                                          {s.status}
+                                        </span>
+                                      </td>
+                                      <td>
+                                        <button 
+                                          onClick={() => openRevisionModal(s)}
+                                          className="btn btn-secondary" 
+                                          style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                                          disabled={scheduleWeek !== 'current'}
+                                        >
+                                          Revisi
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                    );
+                  })
+              ) : (
+                data.lecturers
+                  .filter(lec => 
+                    lec.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                    (lec.nidn && lec.nidn.includes(searchQuery))
+                  )
+                  .map(lec => {
+                  const lecSchedules = data.schedules.filter(s => s.lecturerId === lec.id);
+                  return (
+                    <div key={lec.id} style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '24px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                        <h3 style={{ fontSize: '1.1rem', color: 'var(--primary)', margin: 0 }}>Dosen: {lec.name} ({lec.nidn})</h3>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button 
+                            onClick={() => handleExportPDFByLecturer(lec.id, lec.name)}
+                            className="btn btn-secondary"
+                            style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                            disabled={lecSchedules.length === 0}
+                          >
+                            PDF
+                          </button>
+                        </div>
+                      </div>
+
+                      {lecSchedules.length === 0 ? (
+                        <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Belum ada jadwal mengajar untuk dosen ini.</p>
+                      ) : (
+                        <div className="table-responsive">
+                          <table className="table">
+                            <thead>
+                              <tr>
+                                <th>Hari & Jam</th>
+                                <th>Kelas</th>
+                                <th>Mata Kuliah</th>
+                                <th>SKS</th>
+                                <th>Asisten Dosen</th>
+                                <th>Ruangan</th>
+                                <th>Status</th>
+                                <th>Aksi</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {lecSchedules.map(s => {
+                                const slot = scheduleWeek === 'current' ? (s.tempTimeSlot || s.timeSlot) : s.timeSlot;
+                                const room = scheduleWeek === 'current' ? (s.tempRoom || s.room) : s.room;
+                                const isTemp = scheduleWeek === 'current' && (s.tempTimeSlotId || s.tempRoomId);
+
+                                return (
+                                  <tr key={s.id} style={{ backgroundColor: s.status === 'DRAFT' ? 'rgba(217, 119, 6, 0.05)' : 'transparent' }}>
+                                    <td>
+                                      <strong>{slot?.day}</strong>
+                                      {isTemp && (
+                                        <span className="badge badge-warning" style={{ fontSize: '0.6rem', display: 'block', marginTop: '4px' }}>Sementara</span>
+                                      )}
+                                      <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{slot?.startTime} - {slot?.endTime}</span>
+                                    </td>
+                                    <td><strong>Kelas {s.class?.name}</strong></td>
+                                    <td>
+                                      <strong>{s.course?.name}</strong>
+                                      <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{s.course?.code}</span>
+                                    </td>
+                                    <td><span className="badge badge-primary">{s.course?.credits} SKS</span></td>
+                                    <td>
+                                      {s.assistant ? (
+                                        <span className="badge badge-accent">{s.assistant.name}</span>
+                                      ) : (
+                                        <span style={{ color: 'var(--text-muted)' }}>-</span>
+                                      )}
+                                    </td>
+                                    <td><span style={{ color: 'var(--primary)', fontWeight: '600' }}>{room?.code}</span></td>
+                                    <td>
+                                      <span className={`badge ${s.status === 'PUBLISHED' ? 'badge-primary' : 'badge-warning'}`}>
+                                        {s.status}
+                                      </span>
+                                    </td>
+                                    <td>
+                                      <button 
+                                        onClick={() => openRevisionModal(s)}
+                                        className="btn btn-secondary" 
+                                        style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                                        disabled={scheduleWeek !== 'current'}
+                                      >
+                                        Revisi
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </div>
           </section>
         )}
@@ -659,7 +834,7 @@ export default function AdminDashboard() {
                       <label className="form-label">Mata Kuliah</label>
                       <select className="form-control form-select" required onChange={e => setMasterForm({...masterForm, courseId: e.target.value})} value={masterForm.courseId || ''}>
                         <option value="">Pilih Mata Kuliah...</option>
-                        {data.courses.map(c => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
+                        {data.courses.filter(c => c.isActive !== false).map(c => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
                       </select>
                     </div>
                     <div className="form-group">
@@ -689,7 +864,7 @@ export default function AdminDashboard() {
                         {masterTab === 'courses' && <><th>Kode</th><th>Nama MK</th><th>SKS</th><th>Tipe</th><th>Smt</th><th>Status</th><th>Aksi</th></>}
                         {masterTab === 'rooms' && <><th>Kode</th><th>Lantai</th><th>Kapasitas</th><th>Tipe</th></>}
                         {masterTab === 'classes' && <><th>Nama Kelas</th><th>Smt</th><th>Kapasitas</th></>}
-                        {masterTab === 'semesters' && <><th>Tahun</th><th>Tipe</th><th>Status</th></>}
+                        {masterTab === 'semesters' && <><th>Tahun</th><th>Tipe</th><th>Status</th><th>Aksi</th></>}
                         {masterTab === 'courseLecturers' && <><th>Mata Kuliah</th><th>Dosen Pengampu</th></>}
                       </tr>
                     </thead>
@@ -710,7 +885,24 @@ export default function AdminDashboard() {
                         <tr key={item.id}><td>{item.name}</td><td>{item.semester}</td><td>{item.capacity} mhs</td></tr>
                       ))}
                       {masterTab === 'semesters' && (data.semesters || []).map(item => (
-                        <tr key={item.id}><td>{item.year}</td><td>{item.type}</td><td><span className={`badge ${item.isActive ? 'badge-accent' : 'badge-secondary'}`}>{item.isActive ? 'Aktif' : 'Tidak Aktif'}</span></td></tr>
+                        <tr key={item.id}>
+                          <td>{item.year}</td>
+                          <td>{item.type}</td>
+                          <td>
+                            <span className={`badge ${item.isActive ? 'badge-accent' : 'badge-secondary'}`}>
+                              {item.isActive ? 'Aktif' : 'Tidak Aktif'}
+                            </span>
+                          </td>
+                          <td>
+                            <button 
+                              className="btn btn-primary" 
+                              style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                              onClick={() => handleActivateSemester(item.id, !item.isActive)}
+                            >
+                              {item.isActive ? 'Nonaktifkan' : 'Aktifkan'}
+                            </button>
+                          </td>
+                        </tr>
                       ))}
                       {masterTab === 'courseLecturers' && (data.courseLecturers || []).map(item => (
                         <tr key={item.id}><td>{item.course?.code} - {item.course?.name}</td><td>{item.lecturer?.name}</td></tr>
@@ -1150,6 +1342,28 @@ function CourseRow({ course, onSave }) {
     }
   };
 
+  const handleDelete = async () => {
+    if (!confirm(`Apakah Anda yakin ingin menghapus mata kuliah ${course.name}?`)) {
+      return;
+    }
+    setUpdating(true);
+    try {
+      const res = await fetch(`/api/data?table=courses&id=${course.id}`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Gagal menghapus mata kuliah');
+      }
+      alert(`Mata Kuliah ${course.name} berhasil dihapus!`);
+      if (onSave) onSave();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   return (
     <tr>
       <td><strong>{course.code}</strong></td>
@@ -1179,14 +1393,24 @@ function CourseRow({ course, onSave }) {
         </label>
       </td>
       <td>
-        <button 
-          onClick={handleUpdate} 
-          className="btn btn-primary" 
-          style={{ padding: '6px 14px', fontSize: '0.8rem' }}
-          disabled={updating}
-        >
-          {updating ? 'Menyimpan...' : 'Simpan'}
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button 
+            onClick={handleUpdate} 
+            className="btn btn-primary" 
+            style={{ padding: '6px 14px', fontSize: '0.8rem' }}
+            disabled={updating}
+          >
+            {updating ? 'Menyimpan...' : 'Simpan'}
+          </button>
+          <button 
+            onClick={handleDelete} 
+            className="btn btn-secondary" 
+            style={{ padding: '6px 14px', fontSize: '0.8rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)' }}
+            disabled={updating}
+          >
+            Hapus
+          </button>
+        </div>
       </td>
     </tr>
   );

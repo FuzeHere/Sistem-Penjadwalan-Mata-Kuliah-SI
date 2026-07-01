@@ -54,7 +54,8 @@ export function generateSchedule({
   rooms,
   timeSlots,
   lecturerPreferences = [],
-  students = []
+  students = [],
+  courseEnrollments = []
 }) {
   // Convert arrays to helper maps for faster lookup
   const courseMap = new Map(courses.map(c => [c.id, c]));
@@ -180,12 +181,24 @@ export function generateSchedule({
               }
             }
 
-            // 5. If another scheduled class is the assistant's own class
-            // The assistant is a student in class C_A. If there is a scheduled class for C_A in this slot, assistant is busy studying!
-            if (assistant && s.classId === assistant.classId) {
-              isConflict = true;
-              conflictDesc = `Asisten Dosen ${assistant.name} sedang memiliki jadwal kuliah kelasnya sendiri (${classMap.get(assistant.classId)?.name}).`;
-              break;
+            // 5. If another scheduled class is the assistant's own class, and they are enrolled in it
+            if (assistant) {
+              const assistantEnrollments = (courseEnrollments || [])
+                .filter(e => e.studentId === assistant.id)
+                .map(e => e.courseId);
+              
+              const hasEnrollments = assistantEnrollments.length > 0;
+              const isClassSchedule = s.classId === assistant.classId;
+              
+              const isBusyStudying = hasEnrollments 
+                ? (isClassSchedule && assistantEnrollments.includes(s.courseId))
+                : isClassSchedule;
+
+              if (isBusyStudying) {
+                isConflict = true;
+                conflictDesc = `Asisten Dosen ${assistant.name} sedang memiliki jadwal kuliah kelasnya sendiri (${classMap.get(assistant.classId)?.name || ''}) untuk mata kuliah ${s.course?.name || ''}.`;
+                break;
+              }
             }
 
             // 6. If a student in this class is busy assisting another class in this slot
